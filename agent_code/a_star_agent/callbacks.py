@@ -1,15 +1,7 @@
-import os
-import random
-
 import numpy as np
 import pyastar2d
 
-from scipy.spatial.distance import cityblock
-
 import settings as s
-
-import pandas as pd
-
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
