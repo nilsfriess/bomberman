@@ -13,6 +13,7 @@ import pandas as pd
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
+coordinates = [[(i,j) for j in range(s.COLS)] for i in range(s.ROWS)]
 
 def setup(self):
     """
@@ -31,9 +32,7 @@ def setup(self):
     self.last_direction = [0,0]
     self.last_closest_coin = [np.inf, np.inf]
     self.path = []
-    
-    self.coordinates = [[(i,j) for j in range(s.COLS)] for i in range(s.ROWS)]
-    
+        
     # if self.train or not os.path.isfile("my-saved-model.pt"):
     #     self.logger.info("Setting up model from scratch.")
     #     weights = np.random.rand(len(ACTIONS))
@@ -50,6 +49,20 @@ def sign(x):
     if x == 0:
         return 0
     return -1 if x < 0 else 1
+
+def find_path(field, start, goal):
+    # compute manhattan distance from `start` to all the squares in the field
+    weights = np.array([[cityblock_dist(start, coord)
+                         for coord in row]
+                        for row in coordinates], dtype=np.float32)
+    weights = weights + 1 # weights must >= 1
+    weights[field != 0] = np.inf
+    
+    # Compute shortest path to closest coin using A*
+    path = pyastar2d.astar_path(weights, start, goal, allow_diagonal=False)
+    if path is None:
+        return []
+    return path[1:] # discard first element in path, since it's the start position
 
 def act(self, game_state: dict) -> str:
     """
@@ -77,20 +90,9 @@ def act(self, game_state: dict) -> str:
 
     if closest_coin != self.last_closest_coin:
         self.last_closest_coin = closest_coin
+        self.path = find_path(game_state['field'], self_pos, closest_coin)
 
-        weights = np.array([[cityblock_dist(self_pos, coord)
-                             for coord in row]
-                            for row in self.coordinates], dtype=np.float32)
-        weights = weights + 1
-        weights[game_state['field'] != 0] = np.inf
-
-        # Compute shortest path to closest coin using A*
-        self.path = pyastar2d.astar_path(weights, self_pos, closest_coin, allow_diagonal=False)
-        if self.path is None:
-            return np.random.choice(ACTIONS, p=[1/4,1/4,1/4,1/4,0,0])
-        self.path = self.path[1:]        
-
-    if self.path is None or self.path.size == 0:
+    if self.path.size == 0:
         return np.random.choice(ACTIONS, p=[1/4,1/4,1/4,1/4,0,0])
 
     next_coord, self.path = self.path[0], self.path[1:]
