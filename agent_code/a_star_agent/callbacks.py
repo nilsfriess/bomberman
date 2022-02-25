@@ -84,9 +84,9 @@ def act(self, game_state: dict) -> str:
         # Just wait if no coin is in the game
         return ACTIONS[4]
 
-    distance_to_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
+    index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
                                               for coin in coins_pos]))    
-    closest_coin = coins_pos[distance_to_closest]
+    closest_coin = coins_pos[index_of_closest]
 
     if closest_coin != self.last_closest_coin:
         self.last_closest_coin = closest_coin
