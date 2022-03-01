@@ -1,4 +1,3 @@
 pyastar2d
-mcts
 pygame
 tqdm
