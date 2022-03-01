@@ -56,15 +56,17 @@ def act(self, game_state: dict) -> str:
     # print(features.shape)
     return 'WAIT'
 
-def state_to_features(game_state: dict) -> np.array:    
+def state_to_features(game_state: dict) -> np.array:
+    if game_state is None:
+        return np.array([])
+    
     field = game_state['field'].ravel()
-
+    
     # bombs = game_state['bombs']
     # bombs = np.ravel([[x,y,countdown] for ((x,y),countdown) in bombs])
 
     explosion_map = game_state['explosion_map'].ravel()
 
-    # 
     coins_pos = np.zeros((coin_count, 2))
     coins = np.array(game_state['coins'])
     
