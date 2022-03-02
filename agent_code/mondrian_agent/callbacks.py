@@ -4,7 +4,9 @@ from settings import SCENARIOS, WIDTH, HEIGHT
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
-coin_count = SCENARIOS['classic']['COIN_COUNT']
+coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
+
+EPSILON = 0.01
 
 from collections import defaultdict
 
@@ -34,14 +36,13 @@ def setup(self):
              + (WIDTH * HEIGHT * 2) \
              + (coin_count * 2) \
              + (4 * 2)
-    n_actions = len(ACTIONS)
-
-    # default action in Q-table is waiting
-    default_action =  np.array([0,0,0,0,1,0])
+    n_actions = len(ACTIONS)    
 
     # self.Q = np.zeros((n_states, n_actions))
-    self.Q = defaultdict(lambda : default_action)
-    
+    self.Q = defaultdict(default_action)
+
+def default_action():
+    return np.array([0,0,0,0,1,0])
 
 def act(self, game_state: dict) -> str:
     """
@@ -52,9 +53,15 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
-    features = state_to_features(game_state)
-    # print(features.shape)
-    return 'WAIT'
+
+    if np.random.uniform() < 1-EPSILON:
+        state = state_to_features(game_state)    
+        action = np.argmax(self.Q[np.array2string(state)])
+    else:
+        print("Random move")
+        action = np.random.choice(len(ACTIONS)-1)
+
+    return ACTIONS[action]
 
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
@@ -85,3 +92,6 @@ def state_to_features(game_state: dict) -> np.array:
     features = np.concatenate([field, explosion_map, coins_pos, self_pos, others_pos]).astype(int)
     
     return features
+
+def index_of_actions(action: str) -> int:
+    return ACTIONS.index(action)

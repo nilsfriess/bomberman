@@ -1,10 +1,19 @@
 from collections import deque
 from typing import List
 
-import events as e
-from .callbacks import state_to_features
+import pickle
+import datetime
+import random
 
-EXP_BUFFER_SIZE = 10
+import events as e
+from .callbacks import state_to_features, ACTIONS, index_of_actions
+
+import numpy as np
+
+EXP_BUFFER_SIZE = 100
+BATCH_SIZE = 10
+GAMMA = 0.9
+ALPHA = 0.5
 
 def setup_training(self):
     """
@@ -14,6 +23,7 @@ def setup_training(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    # experience buffer
     self.transitions = deque(maxlen=EXP_BUFFER_SIZE)
 
 
@@ -40,7 +50,20 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                              state_to_features(new_game_state),
                              reward_from_events(self, events)))
 
-    print(self.transitions)
+    batchsize = min(BATCH_SIZE, len(self.transitions))
+    
+    batch = random.sample(self.transitions, batchsize)
+    for (old, action, new, reward) in batch:
+        Q_old = self.Q[np.array2string(old)][index_of_actions(action)]
+        if new is None:
+            Q_SARSA = np.amax(self.Q[np.array2string(old)])
+        else:
+            Q_SARSA = self.Q[np.array2string(new)][index_of_actions(action)]
+
+        Q_new = Q_old + ALPHA*(reward + GAMMA*Q_SARSA - Q_old)
+
+        self.Q[np.array2string(old)][index_of_actions(action)] = Q_new
+    
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -56,17 +79,26 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     :param self: The same object that is passed to all of your callbacks.
     """
-    self.transitions.append(Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
+    self.transitions.append((state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
 
-    # # Store the model
-    # with open("my-saved-model.pt", "wb") as file:
-    #     pickle.dump(self.model, file)
+    # Store the model
+    dt = datetime.datetime.now()
+    st = dt.strftime('%Y-%m-%d %H:%M:%S')
+    with open(f"models/model_{st}.pt", "wb") as file:
+        pickle.dump(self.Q, file)
 
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 1,
-        e.KILLED_OPPONENT: 5,
+        e.COIN_COLLECTED: 5,
+        e.MOVED_LEFT: 1,
+        e.MOVED_RIGHT: 1,
+        e.MOVED_DOWN: 1,
+        e.MOVED_UP: 1,
+        e.WAITED: -1,
+        e.INVALID_ACTION: -2,
+        e.KILLED_SELF: -50
+        # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
     reward_sum = 0
