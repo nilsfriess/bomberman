@@ -6,7 +6,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
-EPSILON = 0.01
+EPSILON = 0.05
 
 from collections import defaultdict
 
@@ -42,7 +42,10 @@ def setup(self):
     self.Q = defaultdict(default_action)
 
 def default_action():
-    return np.array([0,0,0,0,1,0])
+    action = np.array([0,0,0,0,0,0])
+    action_ind = np.random.choice(4)
+    action[action_ind] = 1
+    return action
 
 def act(self, game_state: dict) -> str:
     """

@@ -18,6 +18,7 @@ ALPHA = 0.8
 
 MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
+VALID_ACTION = 'VALID_ACTION'
 
 def setup_training(self):
     """
@@ -64,8 +65,9 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if closest_coin_dist_new < closest_coin_dist_old:
         events.append(MOVED_TOWARDS_COIN)
     else:
-        events.append(MOVED_AWAY_FROM_COIN)    
-    
+        events.append(MOVED_AWAY_FROM_COIN)
+        
+        
     # state_to_features is defined in callbacks.py
     self.transitions.append((state_to_features(old_game_state),
                              self_action,
@@ -112,16 +114,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 5,
-        e.MOVED_LEFT: 1,
-        e.MOVED_RIGHT: 1,
-        e.MOVED_DOWN: 1,
-        e.MOVED_UP: 1,
-        e.WAITED: -1,
-        e.INVALID_ACTION: -2,
+        e.COIN_COLLECTED: 50,
+        e.WAITED: -20,
+        e.INVALID_ACTION: -10,
         e.KILLED_SELF: -50,
-        MOVED_AWAY_FROM_COIN: -1,
-        MOVED_TOWARDS_COIN: 5
+        MOVED_AWAY_FROM_COIN: -10,
+        MOVED_TOWARDS_COIN: 15
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
