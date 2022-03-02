@@ -5,6 +5,7 @@ import pickle
 import datetime
 import random
 
+from settings import COLS, ROWS
 import events as e
 from .callbacks import state_to_features, ACTIONS, index_of_actions
 
@@ -13,7 +14,10 @@ import numpy as np
 EXP_BUFFER_SIZE = 100
 BATCH_SIZE = 10
 GAMMA = 0.9
-ALPHA = 0.5
+ALPHA = 0.8
+
+MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
+MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
 
 def setup_training(self):
     """
@@ -26,6 +30,11 @@ def setup_training(self):
     # experience buffer
     self.transitions = deque(maxlen=EXP_BUFFER_SIZE)
 
+def cityblock_dist(x,y):
+    return abs(x[0]-y[0]) + abs(x[1]-y[1])
+
+def dist_to_closest_coin(self_pos : tuple, coins_pos: list[tuple]) -> float:
+    return min([cityblock_dist(self_pos, coin) for coin in coins_pos])
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -44,6 +53,19 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
+    if old_game_state is None:
+        closest_coin_dist_old = float("inf")
+    else:
+        closest_coin_dist_old = dist_to_closest_coin(old_game_state['self'][3],
+                                                     old_game_state['coins'])
+    closest_coin_dist_new = dist_to_closest_coin(new_game_state['self'][3],
+                                                 new_game_state['coins'])
+
+    if closest_coin_dist_new < closest_coin_dist_old:
+        events.append(MOVED_TOWARDS_COIN)
+    else:
+        events.append(MOVED_AWAY_FROM_COIN)    
+    
     # state_to_features is defined in callbacks.py
     self.transitions.append((state_to_features(old_game_state),
                              self_action,
@@ -97,7 +119,9 @@ def reward_from_events(self, events: List[str]) -> int:
         e.MOVED_UP: 1,
         e.WAITED: -1,
         e.INVALID_ACTION: -2,
-        e.KILLED_SELF: -50
+        e.KILLED_SELF: -50,
+        MOVED_AWAY_FROM_COIN: -1,
+        MOVED_TOWARDS_COIN: 5
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
