@@ -12,13 +12,15 @@ from .callbacks import state_to_features, ACTIONS, index_of_actions
 import numpy as np
 
 EXP_BUFFER_SIZE = 100
-BATCH_SIZE = 10
+BATCH_SIZE = 50
 GAMMA = 0.9
 ALPHA = 0.8
 
 MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
+MOVED_NOT_TOWARDS_COIN = 'MOVED_NOT_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
 VALID_ACTION = 'VALID_ACTION'
+#TOOK_DIRECTION_TO_CLOSEST_COIN = 'TOOK_DIRECTION_TO_CLOSEST_COIN'
 
 def setup_training(self):
     """
@@ -31,11 +33,7 @@ def setup_training(self):
     # experience buffer
     self.transitions = deque(maxlen=EXP_BUFFER_SIZE)
 
-def cityblock_dist(x,y):
-    return abs(x[0]-y[0]) + abs(x[1]-y[1])
-
-def dist_to_closest_coin(self_pos : tuple, coins_pos: list[tuple]) -> float:
-    return min([cityblock_dist(self_pos, coin) for coin in coins_pos])
+    self.correct_direction = 0
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -54,24 +52,22 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
-    if old_game_state is None:
-        closest_coin_dist_old = float("inf")
-    else:
-        closest_coin_dist_old = dist_to_closest_coin(old_game_state['self'][3],
-                                                     old_game_state['coins'])
-    closest_coin_dist_new = dist_to_closest_coin(new_game_state['self'][3],
-                                                 new_game_state['coins'])
+    old_features = state_to_features(old_game_state)
+    new_features = state_to_features(new_game_state)
 
-    if closest_coin_dist_new < closest_coin_dist_old:
-        events.append(MOVED_TOWARDS_COIN)
-    else:
-        events.append(MOVED_AWAY_FROM_COIN)
-        
+    if old_features.size > 0:
+        if ACTIONS[old_features[-1]] == self_action:
+            self.correct_direction += 1
+            events.append(MOVED_TOWARDS_COIN)
+        else:
+            events.append(MOVED_NOT_TOWARDS_COIN)
+            if abs(index_of_actions(ACTIONS[old_features[-1]]) - index_of_actions(self_action)) == 2:
+                events.append(MOVED_AWAY_FROM_COIN)
         
     # state_to_features is defined in callbacks.py
-    self.transitions.append((state_to_features(old_game_state),
+    self.transitions.append((old_features,
                              self_action,
-                             state_to_features(new_game_state),
+                             new_features,
                              reward_from_events(self, events)))
 
     batchsize = min(BATCH_SIZE, len(self.transitions))
@@ -104,7 +100,10 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.transitions.append((state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
-
+    
+    print(f"Took correction direction {self.correct_direction/last_game_state['step']*100:.2f}% of the time")
+    self.correct_direction = 0
+    
     # Store the model
     dt = datetime.datetime.now()
     st = dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -118,8 +117,9 @@ def reward_from_events(self, events: List[str]) -> int:
         e.WAITED: -20,
         e.INVALID_ACTION: -10,
         e.KILLED_SELF: -50,
-        MOVED_AWAY_FROM_COIN: -10,
-        MOVED_TOWARDS_COIN: 15
+        MOVED_AWAY_FROM_COIN: -20,
+        MOVED_NOT_TOWARDS_COIN: -10,
+        MOVED_TOWARDS_COIN: 15,
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }

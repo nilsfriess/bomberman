@@ -1,6 +1,6 @@
 import numpy as np
-
-from settings import SCENARIOS, WIDTH, HEIGHT
+import pyastar2d
+from settings import SCENARIOS, ROWS, COLS
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
@@ -32,20 +32,31 @@ def setup(self):
     - the coordinates of each of the revealed coins. (0,0) means the coin was not revealed yet
     - coordinates of each agent (assuming 4 agents are playing)
     """
-    n_states = (WIDTH * HEIGHT * 3) \
-             + (WIDTH * HEIGHT * 2) \
-             + (coin_count * 2) \
-             + (4 * 2)
-    n_actions = len(ACTIONS)    
-
-    # self.Q = np.zeros((n_states, n_actions))
     self.Q = defaultdict(default_action)
 
-def default_action():
+def default_action() -> np.array:
     action = np.array([0,0,0,0,0,0])
     action_ind = np.random.choice(4)
     action[action_ind] = 1
     return action
+
+def cityblock_dist(x,y):
+    return abs(x[0]-y[0]) + abs(x[1]-y[1])
+
+coordinates = [[(i,j) for j in range(COLS)] for i in range(ROWS)]
+def find_path(field, start, goal):
+    # compute manhattan distance from `start` to all the squares in the field
+    weights = np.array([[cityblock_dist(start, coord)
+                         for coord in row]
+                        for row in coordinates], dtype=np.float32)
+    weights = weights + 1 # weights must >= 1
+    weights[field != 0] = np.inf # walls have infinite weight
+    
+    # Compute shortest path from start to goal using A*
+    path = pyastar2d.astar_path(weights, start, goal, allow_diagonal=False)
+    if path is None:
+        return []
+    return path[1:] # discard first element in path, since it's the start position
 
 def act(self, game_state: dict) -> str:
     """
@@ -82,7 +93,6 @@ def state_to_features(game_state: dict) -> np.array:
     
     if coins.size > 0:
         coins_pos[:coins.shape[0]] = coins
-    m = np.amax(explosion_map)
 
     coins_pos = coins_pos.ravel()
 
@@ -92,7 +102,34 @@ def state_to_features(game_state: dict) -> np.array:
     others = game_state['others']
     others_pos = np.ravel([np.asarray(pos) for (_,_,_,pos) in others])
 
-    features = np.concatenate([field, explosion_map, coins_pos, self_pos, others_pos]).astype(int)
+    if len(coins) == 0:
+        dir_to_closest_coin = index_of_actions('WAIT')
+    else:
+        index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
+                                               for coin in coins]))    
+        closest_coin = coins[index_of_closest]
+        path = find_path(game_state['field'], self_pos, closest_coin)
+        if path.size == 0:
+            dir_to_closest_coin = index_of_actions('WAIT')
+        else:
+            next_coord = path[0]
+            direction = np.array([next_coord[0] - self_pos[0],  # vertical direction
+                                  next_coord[1] - self_pos[1]]) # horizontal direction
+    
+            leftright = lambda dir : 3 if dir < 0 else 1
+            updown    = lambda dir : 0 if dir < 0 else 2
+    
+            if direction[1] != 0:
+                dir_to_closest_coin = updown(direction[1])
+            else:
+                dir_to_closest_coin = leftright(direction[0])
+
+    features = np.concatenate([field,
+                               explosion_map,
+                               coins_pos,
+                               self_pos,
+                               others_pos,
+                               [dir_to_closest_coin]]).astype(int)
     
     return features
 
