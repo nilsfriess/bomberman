@@ -1,3 +1,5 @@
+numpy
 pyastar2d
 pygame
 tqdm
+sklearn
