@@ -13,8 +13,10 @@ import numpy as np
 
 EXP_BUFFER_SIZE = 100
 BATCH_SIZE = 50
+UPDATE_INTERVAL = 20
+
 GAMMA = 0.9
-ALPHA = 0.8
+ALPHA = 0.4
 
 MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
@@ -30,8 +32,8 @@ def setup_training(self):
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
     # experience buffer
-    self.transitions = deque(maxlen=EXP_BUFFER_SIZE)
-
+    self.transitions = []
+    
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
     Called once per step to allow intermediate rewards based on game events.
@@ -57,28 +59,32 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         if direction_towards_coin == self_action:
             events.append(MOVED_TOWARDS_COIN)
         else:
-            events.append(MOVED_NOT_TOWARDS_COIN)
+            events.append(MOVED_AWAY_FROM_COIN)
         
     # state_to_features is defined in callbacks.py
-    self.transitions.append((old_features,
-                             self_action,
-                             new_features,
-                             reward_from_events(self, events)))
+    if old_game_state is not None:
+        self.transitions.append((old_features,
+                                 self_action,
+                                 new_features,
+                                 reward_from_events(self, events)))
 
-    # Draw batch from the experience buffer
-    batchsize = min(BATCH_SIZE, len(self.transitions))
-    batch = random.sample(self.transitions, batchsize)
+    # # Draw batch from the experience buffer
+    # if old_game_state is not None and old_game_state["step"] % UPDATE_INTERVAL == 0:
+    #     print("Update")
     
-    for (old, action, new, reward) in batch:
-        Q_old = self.Q[np.array2string(old)][index_of_actions(action)]
-        if new is None:
-            Q_SARSA = np.amax(self.Q[np.array2string(old)])
-        else:
-            Q_SARSA = self.Q[np.array2string(new)][index_of_actions(action)]
+    #     batchsize = min(BATCH_SIZE, len(self.transitions))
+    #     batch = random.sample(self.transitions, batchsize)
+    
+    #     for (old, action, new, reward) in batch:
+    #         Q_old = self.Q[np.array2string(old)][index_of_actions(action)]
+    #         if new is None:
+    #             Q_SARSA = np.amax(self.Q[np.array2string(old)])
+    #         else:
+    #             Q_SARSA = self.Q[np.array2string(new)][index_of_actions(action)]
 
-        Q_new = Q_old + ALPHA*(reward + GAMMA*Q_SARSA - Q_old)
+    #         Q_new = Q_old + ALPHA*(reward + GAMMA*Q_SARSA - Q_old)
 
-        self.Q[np.array2string(old)][index_of_actions(action)] = Q_new
+    #     self.Q[np.array2string(old)][index_of_actions(action)] = Q_new
     
 
 
@@ -99,12 +105,18 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
                              last_action,
                              None,
                              reward_from_events(self, events)))
+
+    # Update Q by a Gradient Boost step
+    self.QEstimator.update(self.transitions)
+
+    # After the gradient boost update, discard the transitions
+    self.transitions = []
     
-    # Store the model
-    dt = datetime.datetime.now()
-    st = dt.strftime('%Y-%m-%d %H:%M:%S')
-    with open(f"models/model_{st}.pt", "wb") as file:
-        pickle.dump(self.Q, file)
+    # # Store the model
+    # dt = datetime.datetime.now()
+    # st = dt.strftime('%Y-%m-%d %H:%M:%S')
+    # with open(f"models/model_{st}.pt", "wb") as file:
+    #     pickle.dump(self.Q, file)
 
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -113,7 +125,7 @@ def reward_from_events(self, events: List[str]) -> int:
         e.WAITED: -20,
         e.INVALID_ACTION: -10,
         e.KILLED_SELF: -50,
-        MOVED_NOT_TOWARDS_COIN: -5,
+        MOVED_AWAY_FROM_COIN: -20,
         MOVED_TOWARDS_COIN: 10,
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad

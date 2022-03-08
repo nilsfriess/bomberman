@@ -2,11 +2,14 @@ import numpy as np
 import pyastar2d
 from settings import SCENARIOS, ROWS, COLS
 
+from .qfunction import QEstimator
+
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
-EPSILON = 0.05
+EPSILON = 0.05 # Exploration/Exploitation parameter
+ALPHA = 0.2 # Learning rate
 
 from collections import defaultdict
 
@@ -32,13 +35,10 @@ def setup(self):
     - the coordinates of each of the revealed coins. (0,0) means the coin was not revealed yet
     - coordinates of each agent (assuming 4 agents are playing)
     """
-    self.Q = defaultdict(default_action)
+    self.QEstimator = QEstimator(default_action, ALPHA)
 
 def default_action() -> np.array:
-    action = np.array([0,0,0,0,0,0])
-    action_ind = np.random.choice(4)
-    action[action_ind] = 1
-    return action
+    return  np.array([0,0,0,0,0,0])
 
 def cityblock_dist(x,y):
     return abs(x[0]-y[0]) + abs(x[1]-y[1])
@@ -69,8 +69,11 @@ def act(self, game_state: dict) -> str:
     """
 
     if np.random.uniform() < 1-EPSILON:
-        state = state_to_features(game_state)    
-        action = np.argmax(self.Q[np.array2string(state)])
+        state = state_to_features(game_state)
+        action_values = []
+        for action in ACTIONS:
+            action_values.append(self.QEstimator.estimate(state, action))
+        action = np.argmax(action_values)
     else:
         print("Random move")
         action = np.random.choice(len(ACTIONS)-1)
