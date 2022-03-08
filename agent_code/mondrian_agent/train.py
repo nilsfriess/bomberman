@@ -17,7 +17,6 @@ GAMMA = 0.9
 ALPHA = 0.8
 
 MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
-MOVED_NOT_TOWARDS_COIN = 'MOVED_NOT_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
 VALID_ACTION = 'VALID_ACTION'
 #TOOK_DIRECTION_TO_CLOSEST_COIN = 'TOOK_DIRECTION_TO_CLOSEST_COIN'
@@ -32,8 +31,6 @@ def setup_training(self):
     """
     # experience buffer
     self.transitions = deque(maxlen=EXP_BUFFER_SIZE)
-
-    self.correct_direction = 0
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -56,13 +53,11 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     new_features = state_to_features(new_game_state)
 
     if old_features.size > 0:
-        if ACTIONS[old_features[-1]] == self_action:
-            self.correct_direction += 1
+        direction_towards_coin = ACTIONS[old_features[-1]]
+        if direction_towards_coin == self_action:
             events.append(MOVED_TOWARDS_COIN)
         else:
             events.append(MOVED_NOT_TOWARDS_COIN)
-            if abs(index_of_actions(ACTIONS[old_features[-1]]) - index_of_actions(self_action)) == 2:
-                events.append(MOVED_AWAY_FROM_COIN)
         
     # state_to_features is defined in callbacks.py
     self.transitions.append((old_features,
@@ -70,9 +65,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                              new_features,
                              reward_from_events(self, events)))
 
+    # Draw batch from the experience buffer
     batchsize = min(BATCH_SIZE, len(self.transitions))
-    
     batch = random.sample(self.transitions, batchsize)
+    
     for (old, action, new, reward) in batch:
         Q_old = self.Q[np.array2string(old)][index_of_actions(action)]
         if new is None:
@@ -99,10 +95,10 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     :param self: The same object that is passed to all of your callbacks.
     """
-    self.transitions.append((state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
-    
-    print(f"Took correction direction {self.correct_direction/last_game_state['step']*100:.2f}% of the time")
-    self.correct_direction = 0
+    self.transitions.append((state_to_features(last_game_state),
+                             last_action,
+                             None,
+                             reward_from_events(self, events)))
     
     # Store the model
     dt = datetime.datetime.now()
@@ -113,13 +109,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 50,
+        e.COIN_COLLECTED: 20,
         e.WAITED: -20,
         e.INVALID_ACTION: -10,
         e.KILLED_SELF: -50,
-        MOVED_AWAY_FROM_COIN: -20,
-        MOVED_NOT_TOWARDS_COIN: -10,
-        MOVED_TOWARDS_COIN: 15,
+        MOVED_NOT_TOWARDS_COIN: -5,
+        MOVED_TOWARDS_COIN: 10,
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
