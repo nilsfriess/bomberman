@@ -4,12 +4,11 @@ from settings import SCENARIOS, ROWS, COLS
 
 from .qfunction import QEstimator
 
-ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+from .helpers import ACTIONS, index_of_action
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
-EPSILON = 0.05 # Exploration/Exploitation parameter
-ALPHA = 0.2 # Learning rate
+EPSILON = 0.4 # Exploration/Exploitation parameter
 
 from collections import defaultdict
 
@@ -27,18 +26,10 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    self.QEstimator = QEstimator(learning_rate = 0.1,
+                                 discount_factor = 0.95)
 
-    """ 
-    The total number of states is the sum of the following values:
-    - 3 possible values for the each tile on the game field
-    - 2 possible values for the explosion map
-    - the coordinates of each of the revealed coins. (0,0) means the coin was not revealed yet
-    - coordinates of each agent (assuming 4 agents are playing)
-    """
-    self.QEstimator = QEstimator(default_action, ALPHA)
-
-def default_action() -> np.array:
-    return  np.array([0,0,0,0,0,0])
+    self.initial_epsilon = 0.1
 
 def cityblock_dist(x,y):
     return abs(x[0]-y[0]) + abs(x[1]-y[1])
@@ -68,17 +59,25 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
 
-    if np.random.uniform() < 1-EPSILON:
+    if np.random.uniform() < 1-self.initial_epsilon:
         state = state_to_features(game_state)
-        action_values = []
-        for action in ACTIONS:
-            action_values.append(self.QEstimator.estimate(state, action))
-        action = np.argmax(action_values)
-    else:
-        print("Random move")
-        action = np.random.choice(len(ACTIONS)-1)
+        best_action = 'WAIT'
+        best_action_val = float('-inf')
 
-    return ACTIONS[action]
+        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])       
+        
+        for action in ACTIONS:
+            action_val = self.QEstimator.estimate(state, action)
+            if action_val > best_action_val:
+                best_action = action
+                best_action_val = action_val
+
+        return best_action
+    else:
+        action = np.random.choice(len(ACTIONS)-1)
+        return ACTIONS[action]
+
+   
 
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
@@ -106,14 +105,14 @@ def state_to_features(game_state: dict) -> np.array:
     others_pos = np.ravel([np.asarray(pos) for (_,_,_,pos) in others])
 
     if len(coins) == 0:
-        dir_to_closest_coin = index_of_actions('WAIT')
+        dir_to_closest_coin = index_of_action('WAIT')
     else:
         index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
                                                for coin in coins]))    
         closest_coin = coins[index_of_closest]
         path = find_path(game_state['field'], self_pos, closest_coin)
         if path.size == 0:
-            dir_to_closest_coin = index_of_actions('WAIT')
+            dir_to_closest_coin = index_of_action('WAIT')
         else:
             next_coord = path[0]
             direction = np.array([next_coord[0] - self_pos[0],  # vertical direction
@@ -135,6 +134,3 @@ def state_to_features(game_state: dict) -> np.array:
                                [dir_to_closest_coin]]).astype(int)
     
     return features
-
-def index_of_actions(action: str) -> int:
-    return ACTIONS.index(action)

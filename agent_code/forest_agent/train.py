@@ -7,20 +7,16 @@ import random
 
 from settings import COLS, ROWS
 import events as e
-from .callbacks import state_to_features, ACTIONS, index_of_actions
+from .callbacks import state_to_features
+
+from .helpers import ACTIONS, index_of_action
 
 import numpy as np
-
-EXP_BUFFER_SIZE = 100
-BATCH_SIZE = 50
-UPDATE_INTERVAL = 20
-
-GAMMA = 0.9
-ALPHA = 0.4
 
 MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
 VALID_ACTION = 'VALID_ACTION'
+NO_COIN_COLLECTED = 'NO_COIN_COLLECTED'
 #TOOK_DIRECTION_TO_CLOSEST_COIN = 'TOOK_DIRECTION_TO_CLOSEST_COIN'
 
 def setup_training(self):
@@ -68,6 +64,12 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                                  new_features,
                                  reward_from_events(self, events)))
 
+    if e.COIN_COLLECTED not in events:
+        events.append(NO_COIN_COLLECTED)
+
+    if e.INVALID_ACTION not in events:
+        events.append(VALID_ACTION)
+        
     # # Draw batch from the experience buffer
     # if old_game_state is not None and old_game_state["step"] % UPDATE_INTERVAL == 0:
     #     print("Update")
@@ -109,8 +111,15 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # Update Q by a Gradient Boost step
     self.QEstimator.update(self.transitions)
 
+    s = 0
+    for (_,_,_,reward) in self.transitions:
+        s += reward
+    print(f"Total reward: {s}")
+
     # After the gradient boost update, discard the transitions
     self.transitions = []
+
+    print(len(last_game_state["coins"]))
     
     # # Store the model
     # dt = datetime.datetime.now()
@@ -121,12 +130,14 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 20,
+        e.COIN_COLLECTED: 100,
+        # NO_COIN_COLLECTED: -1,
         e.WAITED: -20,
-        e.INVALID_ACTION: -10,
-        e.KILLED_SELF: -50,
-        MOVED_AWAY_FROM_COIN: -20,
+        e.INVALID_ACTION: -40,
+        e.KILLED_SELF: -500,
+        MOVED_AWAY_FROM_COIN: -10,
         MOVED_TOWARDS_COIN: 10,
+        VALID_ACTION: -1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
