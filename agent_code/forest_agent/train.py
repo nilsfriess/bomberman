@@ -4,6 +4,7 @@ from typing import List
 import pickle
 import datetime
 import random
+import threading
 
 from settings import COLS, ROWS
 import events as e
@@ -29,6 +30,9 @@ def setup_training(self):
     """
     # experience buffer
     self.transitions = []
+
+    self.waited = 0
+    self.invalid = 0
     
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -69,17 +73,38 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         cityblock distance might be very long, if crates are present 
         on the field).
         '''
+        lock = threading.Lock()        
+        shortest_path_length = float("inf")
+        best_dir = (0,0)        
+
+        def path_to_coin(coin):
+            nonlocal shortest_path_length
+            nonlocal best_dir
+            
+            path = find_path(old_game_state['field'], self_pos, coin)
+            if len(path) == 0:
+                return
+            
+            lock.acquire()
+            if len(path) < shortest_path_length:
+                shortest_path_length = len(path)
+                best_dir = path[0]
+            lock.release()
+                
         coins = old_game_state['coins']
+        threads = []
+
         if len(coins) > 0:
             self_pos = old_game_state['self'][3]
 
-            shortest_path_length = float("inf")
             for coin in coins:
-                path = find_path(old_game_state['field'], self_pos, coin)
+                thread = threading.Thread(target=path_to_coin,
+                                          args=[coin])
+                threads.append(thread)
+                thread.start()
 
-                if path.size > 0 and (len(path) < shortest_path_length):
-                    shortest_path_length = len(path)
-                    best_dir = path[0]
+            for thread in threads:
+                thread.join()
                     
             if np.array_equal(best_dir, new_game_state['self'][3]):
                 events.append(MOVED_TOWARDS_COIN)
@@ -92,6 +117,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     if e.INVALID_ACTION not in events:
         events.append(VALID_ACTION)
+
+
+
+    if e.INVALID_ACTION in events:
+        self.invalid += 1
+    if e.WAITED in events:
+        self.waited += 1
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     """
@@ -123,21 +155,29 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     print(f"Total reward: {s}")
     print(f"Coins left: {len(last_game_state['coins'])}")
+    print(f"Waited {self.waited} times")
+    self.waited = 0
+    print(f"Invalid moves: {self.invalid}")
+    self.invalid = 0
+    print(f"Survived {last_game_state['step']} steps")
     
-    # # Store the model
-    # dt = datetime.datetime.now()
-    # st = dt.strftime('%Y-%m-%d %H:%M:%S')
-    # with open(f"models/model_{st}.pt", "wb") as file:
-    #     pickle.dump(self.Q, file)
+    # Store the model
+    if last_game_state['round'] >= 999:
+        dt = datetime.datetime.now()
+        st = dt.strftime('%Y-%m-%d %H:%M:%S')
+        with open(f"models/model_{st}.pt", "wb") as file:
+            pickle.dump(self.QEstimator, file)
 
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 20,
+        e.COIN_COLLECTED: 5,
+        e.CRATE_DESTROYED: 10,
+        e.BOMB_DROPPED: 1,
         NO_COIN_COLLECTED: -2,
-        e.WAITED: -20,
-        e.INVALID_ACTION: -10,
-        e.KILLED_SELF: -500,
+        e.WAITED: -5,
+        e.INVALID_ACTION: -5,
+        e.KILLED_SELF: -50,
         MOVED_AWAY_FROM_COIN: -3,
         MOVED_TOWARDS_COIN: 2,
         VALID_ACTION: -1
