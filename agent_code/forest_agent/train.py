@@ -50,12 +50,12 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
 
-    if old_features.size > 0:
-        direction_towards_coin = ACTIONS[old_features[-1]]
-        if direction_towards_coin == self_action:
-            events.append(MOVED_TOWARDS_COIN)
-        else:
-            events.append(MOVED_AWAY_FROM_COIN)
+    # if old_features.size > 0:
+    #     direction_towards_coin = ACTIONS[old_features[-1]]
+    #     if direction_towards_coin == self_action:
+    #         events.append(MOVED_TOWARDS_COIN)
+    #     else:
+    #         events.append(MOVED_AWAY_FROM_COIN)
         
     # state_to_features is defined in callbacks.py
     if old_game_state is not None:
@@ -135,8 +135,8 @@ def reward_from_events(self, events: List[str]) -> int:
         e.WAITED: -20,
         e.INVALID_ACTION: -40,
         e.KILLED_SELF: -500,
-        MOVED_AWAY_FROM_COIN: -10,
-        MOVED_TOWARDS_COIN: 10,
+        #MOVED_AWAY_FROM_COIN: -10,
+        #MOVED_TOWARDS_COIN: 10,
         VALID_ACTION: -1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad

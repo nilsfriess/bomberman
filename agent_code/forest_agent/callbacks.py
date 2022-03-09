@@ -82,55 +82,92 @@ def act(self, game_state: dict) -> str:
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
         return np.array([])
+
+    own_position    = np.zeros((ROWS, COLS), dtype=np.int8)
+    enemy_positions = np.zeros((ROWS, COLS), dtype=np.int8)
+    coin_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
+    bomb_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
+
+    bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
+    others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
+    (_,_,_, (x,y)) = game_state['self']
+    coins = game_state['coins']
+
+    # Assemble features
+    field = game_state['field']
+    own_position[x,y] = 1
+    explosion_positions = (game_state['explosion_map'] > 0).astype(np.int8)
     
-    field = game_state['field'].ravel()
+    for i in range(ROWS):
+        for j in range(COLS):
+            if (i,j) in bombs:
+                bomb_positions[i,j] = 1
+
+            if (i,j) in others:
+                enemy_positions[i,j] = 1
+
+            if (i,j) in coins:
+                coin_positions[i,j] = 1
+
+    features = np.concatenate([
+        field.ravel(),
+        own_position.ravel(),
+        enemy_positions.ravel(),
+        coin_positions.ravel(),
+        bomb_positions.ravel(),
+        explosion_positions.ravel()]).astype(np.int8)
+
+    return features
+            
     
-    # bombs = game_state['bombs']
-    # bombs = np.ravel([[x,y,countdown] for ((x,y),countdown) in bombs])
-
-    explosion_map = game_state['explosion_map'].ravel()
-
-    coins_pos = np.zeros((coin_count, 2))
-    coins = np.array(game_state['coins'])
+    # field = game_state['field'].ravel()
     
-    if coins.size > 0:
-        coins_pos[:coins.shape[0]] = coins
+    # # bombs = game_state['bombs']
+    # # bombs = np.ravel([[x,y,countdown] for ((x,y),countdown) in bombs])
 
-    coins_pos = coins_pos.ravel()
+    # explosion_map = game_state['explosion_map'].ravel()
 
-    _,_,_,self_pos = game_state['self']
-    self_pos = np.asarray(self_pos)
-
-    others = game_state['others']
-    others_pos = np.ravel([np.asarray(pos) for (_,_,_,pos) in others])
-
-    if len(coins) == 0:
-        dir_to_closest_coin = index_of_action('WAIT')
-    else:
-        index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
-                                               for coin in coins]))    
-        closest_coin = coins[index_of_closest]
-        path = find_path(game_state['field'], self_pos, closest_coin)
-        if path.size == 0:
-            dir_to_closest_coin = index_of_action('WAIT')
-        else:
-            next_coord = path[0]
-            direction = np.array([next_coord[0] - self_pos[0],  # vertical direction
-                                  next_coord[1] - self_pos[1]]) # horizontal direction
+    # coins_pos = np.zeros((coin_count, 2))
+    # coins = np.array(game_state['coins'])
     
-            leftright = lambda dir : 3 if dir < 0 else 1
-            updown    = lambda dir : 0 if dir < 0 else 2
-    
-            if direction[1] != 0:
-                dir_to_closest_coin = updown(direction[1])
-            else:
-                dir_to_closest_coin = leftright(direction[0])
+    # if coins.size > 0:
+    #     coins_pos[:coins.shape[0]] = coins
 
-    features = np.concatenate([field,
-                               explosion_map,
-                               coins_pos,
-                               self_pos,
-                               others_pos,
-                               [dir_to_closest_coin]]).astype(int)
+    # coins_pos = coins_pos.ravel()
+
+    # _,_,_,self_pos = game_state['self']
+    # self_pos = np.asarray(self_pos)
+
+    # others = game_state['others']
+    # others_pos = np.ravel([np.asarray(pos) for (_,_,_,pos) in others])
+
+    # if len(coins) == 0:
+    #     dir_to_closest_coin = index_of_action('WAIT')
+    # else:
+    #     index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
+    #                                            for coin in coins]))    
+    #     closest_coin = coins[index_of_closest]
+    #     path = find_path(game_state['field'], self_pos, closest_coin)
+    #     if path.size == 0:
+    #         dir_to_closest_coin = index_of_action('WAIT')
+    #     else:
+    #         next_coord = path[0]
+    #         direction = np.array([next_coord[0] - self_pos[0],  # vertical direction
+    #                               next_coord[1] - self_pos[1]]) # horizontal direction
+    
+    #         leftright = lambda dir : 3 if dir < 0 else 1
+    #         updown    = lambda dir : 0 if dir < 0 else 2
+    
+    #         if direction[1] != 0:
+    #             dir_to_closest_coin = updown(direction[1])
+    #         else:
+    #             dir_to_closest_coin = leftright(direction[0])
+
+    # features = np.concatenate([field,
+    #                            explosion_map,
+    #                            coins_pos,
+    #                            self_pos,
+    #                            others_pos,
+    #                            [dir_to_closest_coin]]).astype(int)
     
     return features
