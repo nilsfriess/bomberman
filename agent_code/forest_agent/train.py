@@ -9,7 +9,7 @@ from settings import COLS, ROWS
 import events as e
 from .callbacks import state_to_features
 
-from .helpers import ACTIONS, index_of_action
+from .helpers import ACTIONS, index_of_action, cityblock_dist, find_path
 
 import numpy as np
 
@@ -49,46 +49,45 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     """
     old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
-
-    # if old_features.size > 0:
-    #     direction_towards_coin = ACTIONS[old_features[-1]]
-    #     if direction_towards_coin == self_action:
-    #         events.append(MOVED_TOWARDS_COIN)
-    #     else:
-    #         events.append(MOVED_AWAY_FROM_COIN)
         
-    # state_to_features is defined in callbacks.py
     if old_game_state is not None:
         self.transitions.append((old_features,
                                  self_action,
                                  new_features,
                                  reward_from_events(self, events)))
 
+        ''' 
+        Check, if we walked in the direction of the closest coin.
+        This is done by computing the path from our position in
+        `old_game_state` to the closest coin using A*. If our position
+        in `new_game_state` is the first coordinate in the computed
+        path, then we took the correct direction.
+
+        *TODO*: Compute A* path for all coins, not just the "closest" 
+        one according to the cityblock_distance and take the shortest 
+        path (because the path to the "closest" according to the
+        cityblock distance might be very long, if crates are present 
+        on the field).
+        '''
+        coins = old_game_state['coins']
+        if len(coins) > 0:
+            self_pos = old_game_state['self'][3]
+            index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
+                                                   for coin in coins]))    
+            closest_coin = coins[index_of_closest]
+
+            path = find_path(old_game_state['field'], self_pos, closest_coin)
+            if path.size > 0:
+                if np.array_equal(path[0], new_game_state['self'][3]):
+                    events.append(MOVED_TOWARDS_COIN)
+                else:
+                    events.append(MOVED_AWAY_FROM_COIN)
+                
     if e.COIN_COLLECTED not in events:
         events.append(NO_COIN_COLLECTED)
 
     if e.INVALID_ACTION not in events:
         events.append(VALID_ACTION)
-        
-    # # Draw batch from the experience buffer
-    # if old_game_state is not None and old_game_state["step"] % UPDATE_INTERVAL == 0:
-    #     print("Update")
-    
-    #     batchsize = min(BATCH_SIZE, len(self.transitions))
-    #     batch = random.sample(self.transitions, batchsize)
-    
-    #     for (old, action, new, reward) in batch:
-    #         Q_old = self.Q[np.array2string(old)][index_of_actions(action)]
-    #         if new is None:
-    #             Q_SARSA = np.amax(self.Q[np.array2string(old)])
-    #         else:
-    #             Q_SARSA = self.Q[np.array2string(new)][index_of_actions(action)]
-
-    #         Q_new = Q_old + ALPHA*(reward + GAMMA*Q_SARSA - Q_old)
-
-    #     self.Q[np.array2string(old)][index_of_actions(action)] = Q_new
-    
-
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     """
@@ -114,12 +113,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     s = 0
     for (_,_,_,reward) in self.transitions:
         s += reward
-    print(f"Total reward: {s}")
 
     # After the gradient boost update, discard the transitions
     self.transitions = []
 
-    print(len(last_game_state["coins"]))
+    print(f"Total reward: {s}")
+    print(f"Coins left: {len(last_game_state['coins'])}")
     
     # # Store the model
     # dt = datetime.datetime.now()
@@ -131,12 +130,12 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
         e.COIN_COLLECTED: 100,
-        # NO_COIN_COLLECTED: -1,
-        e.WAITED: -20,
-        e.INVALID_ACTION: -40,
+        NO_COIN_COLLECTED: -10,
+        e.WAITED: -50,
+        e.INVALID_ACTION: -50,
         e.KILLED_SELF: -500,
-        #MOVED_AWAY_FROM_COIN: -10,
-        #MOVED_TOWARDS_COIN: 10,
+        MOVED_AWAY_FROM_COIN: -10,
+        MOVED_TOWARDS_COIN: 5,
         VALID_ACTION: -1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
