@@ -72,16 +72,20 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         coins = old_game_state['coins']
         if len(coins) > 0:
             self_pos = old_game_state['self'][3]
-            index_of_closest = np.argmin(np.array([cityblock_dist(self_pos, coin)
-                                                   for coin in coins]))    
-            closest_coin = coins[index_of_closest]
 
-            path = find_path(old_game_state['field'], self_pos, closest_coin)
-            if path.size > 0:
-                if np.array_equal(path[0], new_game_state['self'][3]):
-                    events.append(MOVED_TOWARDS_COIN)
-                else:
-                    events.append(MOVED_AWAY_FROM_COIN)
+            shortest_path_length = float("inf")
+            for coin in coins:
+                path = find_path(old_game_state['field'], self_pos, coin)
+
+                if path.size > 0 and (len(path) < shortest_path_length):
+                    shortest_path_length = len(path)
+                    best_dir = path[0]
+                    
+            if np.array_equal(best_dir, new_game_state['self'][3]):
+                events.append(MOVED_TOWARDS_COIN)
+                print("Moved towards")
+            else:
+                events.append(MOVED_AWAY_FROM_COIN)
                 
     if e.COIN_COLLECTED not in events:
         events.append(NO_COIN_COLLECTED)
@@ -129,13 +133,13 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 100,
-        NO_COIN_COLLECTED: -10,
-        e.WAITED: -50,
-        e.INVALID_ACTION: -50,
+        e.COIN_COLLECTED: 20,
+        NO_COIN_COLLECTED: -2,
+        e.WAITED: -20,
+        e.INVALID_ACTION: -10,
         e.KILLED_SELF: -500,
-        MOVED_AWAY_FROM_COIN: -10,
-        MOVED_TOWARDS_COIN: 5,
+        MOVED_AWAY_FROM_COIN: -3,
+        MOVED_TOWARDS_COIN: 2,
         VALID_ACTION: -1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
