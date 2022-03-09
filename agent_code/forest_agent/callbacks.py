@@ -55,7 +55,7 @@ def act(self, game_state: dict) -> str:
 
         return best_action
     else:
-        action = np.random.choice(len(ACTIONS)-1)
+        action = np.random.choice(len(ACTIONS))
         return ACTIONS[action]
 
    
