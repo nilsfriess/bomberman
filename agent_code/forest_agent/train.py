@@ -33,6 +33,7 @@ def setup_training(self):
 
     self.waited = 0
     self.invalid = 0
+    self.moved_towards = 0
     
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -108,7 +109,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                     
             if np.array_equal(best_dir, new_game_state['self'][3]):
                 events.append(MOVED_TOWARDS_COIN)
-                print("Moved towards")
+                self.moved_towards += 1
             else:
                 events.append(MOVED_AWAY_FROM_COIN)
                 
@@ -159,6 +160,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.waited = 0
     print(f"Invalid moves: {self.invalid}")
     self.invalid = 0
+    print(f"Moved towards coin {self.moved_towards} times")
+    self.moved_towards = 0
     print(f"Survived {last_game_state['step']} steps")
     
     # Store the model
