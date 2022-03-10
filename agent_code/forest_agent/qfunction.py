@@ -12,7 +12,8 @@ class QEstimator:
 
         self.regressor = GradientBoostingRegressor(warm_start=True,
                                                    learning_rate = self.learning_rate,
-                                                   loss='squared_error')
+                                                   loss='squared_error',
+                                                   n_estimators=1)
 
         self.first_update = True
         self.not_fitted = True
@@ -24,7 +25,7 @@ class QEstimator:
         if self.not_fitted:
             return 0.0
         X = np.append(state, index_of_action(action)).reshape(1,-1)
-        return self.regressor.predict(X)
+        return self.regressor.predict(X)[0]
     
     def update(self, transitions):
         if self.first_update:
@@ -47,7 +48,7 @@ class QEstimator:
             Q_vals = [self.estimate(new_state, action) for action in ACTIONS]
             Q_max = max(Q_vals)
             
-            Q_estimate = self.estimate(old_state, action)
+            # Q_estimate = self.estimate(old_state, action)
 
             '''
             The feature for the regression problem is a vector of the state
@@ -57,9 +58,10 @@ class QEstimator:
             current residual).
             '''            
             X[i-1,:] = np.append(old_state, index_of_action(action))
-            y[i-1] = (accum + pow(self.discount_factor, self.steps) * Q_max) - Q_estimate
+            y[i-1] = accum + pow(self.discount_factor, self.steps) * Q_max
             
         self.regressor.fit(X, y.ravel())
+        self.regressor.n_estimators += 1 
         self.not_fitted = False
 
             

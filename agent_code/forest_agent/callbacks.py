@@ -46,8 +46,10 @@ def act(self, game_state: dict) -> str:
         best_action_val = float('-inf')
 
         av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])
-        #print(av)
 
+        if (game_state['step'] % 100 == 0):
+            print(av)
+        
         best_action = ACTIONS[np.argmax(av)]
         
         # for action in ACTIONS:
@@ -68,38 +70,48 @@ def state_to_features(game_state: dict) -> np.array:
         return np.array([])
 
     own_position    = np.zeros((ROWS, COLS), dtype=np.int8)
-    enemy_positions = np.zeros((ROWS, COLS), dtype=np.int8)
-    coin_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
-    bomb_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
+    # crates_position = np.zeros((ROWS, COLS), dtype=np.int8)
+    # walls_position  = np.zeros((ROWS, COLS), dtype=np.int8)
+    # enemy_positions = np.zeros((ROWS, COLS), dtype=np.int8)
+    # coin_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
+    # bomb_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
 
-    bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
-    others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
+    # bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
+    # others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
     (_,_,_, (x,y)) = game_state['self']
-    coins = game_state['coins']
+    # coins = game_state['coins']
 
-    # Assemble features
-    field = game_state['field']
-    own_position[x,y] = 1
-    explosion_positions = (game_state['explosion_map'] > 0).astype(np.int8)
+    # # Assemble features
+    # field = np.array(game_state['field'])
+
+    # crates_position[field == 1] = 1
+    # walls_position[field == -1] = 1
     
-    for i in range(ROWS):
-        for j in range(COLS):
-            if (i,j) in bombs:
-                bomb_positions[i,j] = 1
+    own_position[x,y] = 1
+    # explosion_positions = (game_state['explosion_map'] > 0).astype(np.int8)
+    
+    # for i in range(ROWS):
+    #     for j in range(COLS):
+    #         if (i,j) in bombs:
+    #             bomb_positions[i,j] = 1
 
-            if (i,j) in others:
-                enemy_positions[i,j] = 1
+    #         if (i,j) in others:
+    #             enemy_positions[i,j] = 1
 
-            if (i,j) in coins:
-                coin_positions[i,j] = 1
+    #         if (i,j) in coins:
+    #             coin_positions[i,j] = 1
 
     features = np.concatenate([
-        field.ravel(),
+        #crates_position.ravel(),
+        #walls_position.ravel(),
         own_position.ravel(),
-        enemy_positions.ravel(),
-        coin_positions.ravel(),
-        bomb_positions.ravel(),
-        explosion_positions.ravel()]).astype(np.int8)
+        #enemy_positions.ravel(),
+        #coin_positions.ravel(),
+        #bomb_positions.ravel(),
+        #explosion_positions.ravel()
+    ]).astype(np.int8)
+
+    assert(np.count_nonzero(features) == 1)
 
     return features
             
@@ -153,5 +165,3 @@ def state_to_features(game_state: dict) -> np.array:
     #                            self_pos,
     #                            others_pos,
     #                            [dir_to_closest_coin]]).astype(int)
-    
-    return features

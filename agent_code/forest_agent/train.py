@@ -4,7 +4,6 @@ from typing import List
 import pickle
 import datetime
 import random
-import threading
 
 from settings import COLS, ROWS
 import events as e
@@ -54,6 +53,19 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     """
     old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
+
+    if e.COIN_COLLECTED not in events:
+        events.append(NO_COIN_COLLECTED)
+
+    if e.INVALID_ACTION not in events:
+        events.append(VALID_ACTION)
+
+    if e.INVALID_ACTION in events:
+        self.invalid += 1
+    if e.WAITED in events:
+        self.waited += 1
+
+
         
     if old_game_state is not None:
         self.transitions.append((old_features,
@@ -61,67 +73,54 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                                  new_features,
                                  reward_from_events(self, events)))
 
-        ''' 
-        Check, if we walked in the direction of the closest coin.
-        This is done by computing the path from our position in
-        `old_game_state` to the closest coin using A*. If our position
-        in `new_game_state` is the first coordinate in the computed
-        path, then we took the correct direction.
+        # ''' 
+        # Check, if we walked in the direction of the closest coin.
+        # This is done by computing the path from our position in
+        # `old_game_state` to the closest coin using A*. If our position
+        # in `new_game_state` is the first coordinate in the computed
+        # path, then we took the correct direction.
 
-        *TODO*: Compute A* path for all coins, not just the "closest" 
-        one according to the cityblock_distance and take the shortest 
-        path (because the path to the "closest" according to the
-        cityblock distance might be very long, if crates are present 
-        on the field).
-        '''
-        lock = threading.Lock()        
-        shortest_path_length = float("inf")
-        best_dir = (0,0)        
+        # *TODO*: Compute A* path for all coins, not just the "closest" 
+        # one according to the cityblock_distance and take the shortest 
+        # path (because the path to the "closest" according to the
+        # cityblock distance might be very long, if crates are present 
+        # on the field).
+        # '''
 
-        def path_to_coin(coin):
-            nonlocal shortest_path_length
-            nonlocal best_dir
+        # shortest_path_length = float("inf")
+        # best_dir = (0,0)        
+
+        # def path_to_coin(coin):
+        #     nonlocal shortest_path_length
+        #     nonlocal best_dir
             
-            path = find_path(old_game_state['field'], self_pos, coin)
-            if len(path) == 0:
-                return
+        #     path = find_path(old_game_state['field'], self_pos, coin)
+        #     if len(path) == 0:
+        #         return
             
-            if len(path) < shortest_path_length:
-                shortest_path_length = len(path)
-                best_dir = path[0]
+        #     if len(path) < shortest_path_length:
+        #         shortest_path_length = len(path)
+        #         best_dir = path[0]
                 
-        coins = old_game_state['coins']
+        # coins = old_game_state['coins']
 
-        if len(coins) > 0:
-            self_pos = old_game_state['self'][3]
+        # if len(coins) > 0:
+        #     self_pos = old_game_state['self'][3]
 
-            n_closest_coins = min(len(coins)-1, 10)
-            coins = np.array(coins)
-            coins = coins[np.argpartition(np.array([cityblock_dist(self_pos, coin)
-                                                    for coin in coins]),
-                                          n_closest_coins)]
+        #     n_closest_coins = min(len(coins)-1, 10)
+        #     coins = np.array(coins)
+        #     coins = coins[np.argpartition(np.array([cityblock_dist(self_pos, coin)
+        #                                             for coin in coins]),
+        #                                   n_closest_coins)]
             
-            for coin in coins[:n_closest_coins]:
-                path_to_coin(coin)
+        #     for coin in coins[:n_closest_coins]:
+        #         path_to_coin(coin)
                     
-            if np.array_equal(best_dir, new_game_state['self'][3]):
-                events.append(MOVED_TOWARDS_COIN)
-                self.moved_towards += 1
-            else:
-                events.append(MOVED_AWAY_FROM_COIN)
-                
-    if e.COIN_COLLECTED not in events:
-        events.append(NO_COIN_COLLECTED)
-
-    if e.INVALID_ACTION not in events:
-        events.append(VALID_ACTION)
-
-
-
-    if e.INVALID_ACTION in events:
-        self.invalid += 1
-    if e.WAITED in events:
-        self.waited += 1
+        #     if np.array_equal(best_dir, new_game_state['self'][3]):
+        #         events.append(MOVED_TOWARDS_COIN)
+        #         self.moved_towards += 1
+        #     else:
+        #         events.append(MOVED_AWAY_FROM_COIN)
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     """
@@ -141,6 +140,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
                              None,
                              reward_from_events(self, events)))
 
+    
     # Update Q by a Gradient Boost step
     self.QEstimator.update(self.transitions)
 
@@ -162,7 +162,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print(f"Survived {last_game_state['step']} steps")
     
     # Store the model
-    if last_game_state['round'] >= 499:
+    if last_game_state['round'] >= 199:
         dt = datetime.datetime.now()
         st = dt.strftime('%Y-%m-%d %H:%M:%S')
         with open(f"models/model_{st}.pt", "wb") as file:
@@ -171,16 +171,17 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 30,
-        e.CRATE_DESTROYED: 30,
+        #e.COIN_COLLECTED: 30,
+        #e.CRATE_DESTROYED: 30,
         # e.BOMB_DROPPED: 1,
         # NO_COIN_COLLECTED: -2,
-        e.WAITED: -2,
+        e.WAITED: -3,
         e.INVALID_ACTION: -2,
-        e.KILLED_SELF: -50,
-        MOVED_AWAY_FROM_COIN: -5,
-        MOVED_TOWARDS_COIN: 4,
-        VALID_ACTION: -1
+        #e.KILLED_SELF: -50,
+        #MOVED_AWAY_FROM_COIN: -5,
+        #MOVED_TOWARDS_COIN: 4,
+        #VALID_ACTION: -1
+        VALID_ACTION: 1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
