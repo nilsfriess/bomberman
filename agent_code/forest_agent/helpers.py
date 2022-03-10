@@ -27,3 +27,24 @@ def find_path(field, start, goal):
     if path is None:
         return []
     return path[1:] # discard first element in path, since it's the start position
+
+
+def find_next_step_to_closest_coin(field, self_pos, coins):
+    if len(coins) == 0:
+        return self_pos
+    
+    shortest_path_length = float("inf")
+    best_coord = (0,0)
+    
+    for coin in coins:
+        path = find_path(field, self_pos, coin)
+        
+        if len(path) == 0:
+            return self_pos
+
+        if len(path) < shortest_path_length:
+            shortest_path_length = len(path)
+            best_coord = path[0]
+
+    return best_coord
+        
