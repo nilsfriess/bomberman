@@ -30,12 +30,12 @@ class QEstimator:
         if self.first_update:
             self.first_update = False
             self.feature_size = transitions[0][2].size
-        X = np.empty((len(transitions)-2-self.steps, self.feature_size + 1))
-        y = np.empty((len(transitions)-2-self.steps, 1))
+        X = np.empty((len(transitions)-1-self.steps, self.feature_size + 1))
+        y = np.empty((len(transitions)-1-self.steps, 1))
 
         for i in range(len(transitions)):
             (old_state, action, new_state, _) = transitions[i]
-            if (i == 0) or (i >= len(transitions) - 1 - self.steps):
+            if (i == 0) or (i >= len(transitions) - self.steps):
                 continue
 
             accum = 0

@@ -45,13 +45,16 @@ def act(self, game_state: dict) -> str:
         best_action = 'WAIT'
         best_action_val = float('-inf')
 
-        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])       
+        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])
+        #print(av)
+
+        best_action = ACTIONS[np.argmax(av)]
         
-        for action in ACTIONS:
-            action_val = self.QEstimator.estimate(state, action)
-            if action_val > best_action_val:
-                best_action = action
-                best_action_val = action_val
+        # for action in ACTIONS:
+        #     action_val = self.QEstimator.estimate(state, action)
+        #     if action_val > best_action_val:
+        #         best_action = action
+        #         best_action_val = action_val
 
         return best_action
     else:

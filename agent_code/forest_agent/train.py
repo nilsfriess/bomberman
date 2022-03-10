@@ -86,26 +86,23 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             if len(path) == 0:
                 return
             
-            lock.acquire()
             if len(path) < shortest_path_length:
                 shortest_path_length = len(path)
                 best_dir = path[0]
-            lock.release()
                 
         coins = old_game_state['coins']
-        threads = []
 
         if len(coins) > 0:
             self_pos = old_game_state['self'][3]
 
-            for coin in coins:
-                thread = threading.Thread(target=path_to_coin,
-                                          args=[coin])
-                threads.append(thread)
-                thread.start()
-
-            for thread in threads:
-                thread.join()
+            n_closest_coins = min(len(coins)-1, 10)
+            coins = np.array(coins)
+            coins = coins[np.argpartition(np.array([cityblock_dist(self_pos, coin)
+                                                    for coin in coins]),
+                                          n_closest_coins)]
+            
+            for coin in coins[:n_closest_coins]:
+                path_to_coin(coin)
                     
             if np.array_equal(best_dir, new_game_state['self'][3]):
                 events.append(MOVED_TOWARDS_COIN)
@@ -165,7 +162,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print(f"Survived {last_game_state['step']} steps")
     
     # Store the model
-    if last_game_state['round'] >= 999:
+    if last_game_state['round'] >= 499:
         dt = datetime.datetime.now()
         st = dt.strftime('%Y-%m-%d %H:%M:%S')
         with open(f"models/model_{st}.pt", "wb") as file:
@@ -174,15 +171,15 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 5,
-        e.CRATE_DESTROYED: 10,
-        e.BOMB_DROPPED: 1,
-        NO_COIN_COLLECTED: -2,
-        e.WAITED: -5,
-        e.INVALID_ACTION: -5,
+        e.COIN_COLLECTED: 30,
+        e.CRATE_DESTROYED: 30,
+        # e.BOMB_DROPPED: 1,
+        # NO_COIN_COLLECTED: -2,
+        e.WAITED: -2,
+        e.INVALID_ACTION: -2,
         e.KILLED_SELF: -50,
-        MOVED_AWAY_FROM_COIN: -3,
-        MOVED_TOWARDS_COIN: 2,
+        MOVED_AWAY_FROM_COIN: -5,
+        MOVED_TOWARDS_COIN: 4,
         VALID_ACTION: -1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
