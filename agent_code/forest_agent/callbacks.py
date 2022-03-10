@@ -82,7 +82,10 @@ def state_to_features(game_state: dict) -> np.array:
     coins = coins[np.argpartition(np.array([cityblock_dist((x,y), coin)
                                             for coin in coins]),
                                   n_closest_coins-1)]
-    coord_to_closest_coin = find_next_step_to_closest_coin(field, (x,y), coins[:n_closest_coins])
+    coord_to_closest_coin = find_next_step_to_closest_coin(field,
+                                                           others,
+                                                           (x,y),
+                                                           coins[:n_closest_coins])
 
     if not ((coord_to_closest_coin[0] == x) and (coord_to_closest_coin[1] == y)):
         dist = coord_to_closest_coin - [x,y]
