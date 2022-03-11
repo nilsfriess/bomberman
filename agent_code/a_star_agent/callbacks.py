@@ -84,7 +84,7 @@ def act(self, game_state: dict) -> str:
         self.last_closest_coin = closest_coin
         self.path = find_path(game_state['field'], self_pos, closest_coin)
 
-    if self.path.size == 0:
+    if len(self.path) == 0:
         return np.random.choice(ACTIONS, p=[1/4,1/4,1/4,1/4,0,0])
 
     next_coord, self.path = self.path[0], self.path[1:]
