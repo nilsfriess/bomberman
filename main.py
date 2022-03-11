@@ -11,6 +11,7 @@ from replay import ReplayWorld
 
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
 
+N_ROUNDS = 0
 
 class Timekeeper:
     def __init__(self, interval):
@@ -175,10 +176,13 @@ def main(argv = None):
         gui = GUI(world)
     else:
         gui = None
+
+    N_ROUNDS = args.n_rounds
+        
     world_controller(world, args.n_rounds,
                      gui=gui, every_step=every_step, turn_based=args.turn_based,
                      make_video=args.make_video, update_interval=args.update_interval)
-
+    
 
 if __name__ == '__main__':
     main()
