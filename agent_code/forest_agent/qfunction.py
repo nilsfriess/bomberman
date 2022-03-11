@@ -19,7 +19,7 @@ class QEstimator:
         self.not_fitted = True
 
         # Number of steps for n-step temporal difference
-        self.steps = 3
+        self.steps = 1
     
     def estimate(self, state: np.array, action: str):
         if self.not_fitted:
@@ -31,14 +31,14 @@ class QEstimator:
         if self.first_update:
             self.first_update = False
             self.feature_size = transitions[0][2].size
-        X = np.empty((len(transitions)-1-self.steps, self.feature_size + 1))
-        y = np.empty((len(transitions)-1-self.steps, 1))
+        X = np.empty((len(transitions)-self.steps, self.feature_size + 1))
+        y = np.empty((len(transitions)-self.steps, 1))
 
         for i in range(len(transitions)):
-            (old_state, action, new_state, _) = transitions[i]
-            if (i == 0) or (i >= len(transitions) - self.steps):
+            (old_state, action, new_state, rewards) = transitions[i]
+            if (i == 0) or (i > len(transitions) - self.steps):
                 continue
-
+            
             accum = 0
             for t in range(self.steps):
                 (_,_,_, reward) = transitions[i+t]
