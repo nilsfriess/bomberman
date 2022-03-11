@@ -5,11 +5,13 @@ import pickle
 from settings import SCENARIOS, ROWS, COLS
 
 from .qfunction import QEstimator
-from .helpers import ACTIONS, index_of_action, find_next_step_to_closest_coin, cityblock_dist
+from .helpers import ACTIONS, \
+    index_of_action,\
+    find_next_step_to_assets,\
+    direction_from_coordinates,\
+    cityblock_dist
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
-
-EPSILON = 0.15 # Exploration/Exploitation parameter
 
 def setup(self):
     """
@@ -32,7 +34,7 @@ def setup(self):
         self.QEstimator = QEstimator(learning_rate = 0.1,
                                      discount_factor = 0.95)
 
-    self.initial_epsilon = 0.1
+    self.initial_epsilon = 0.3
 
 def act(self, game_state: dict) -> str:
     """
@@ -60,70 +62,50 @@ def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
         return np.array([])
 
-    own_position    = np.zeros((ROWS, COLS), dtype=np.int8)
-    crates_position = np.zeros((ROWS, COLS), dtype=np.int8)
-    walls_position  = np.zeros((ROWS, COLS), dtype=np.int8)
-    enemy_positions = np.zeros((ROWS, COLS), dtype=np.int8)
-    coin_positions  = np.zeros(4, dtype=np.int8)
-    bomb_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
-
-    field = np.array(game_state['field'])
-    bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
-    others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
-    (_,_,_, (x,y)) = game_state['self']
-    coins = game_state['coins']
-
     # Assemble features
+
+    ''' CRATES '''
+    field = np.array(game_state['field'])
+    
+    crates_position = np.zeros((ROWS, COLS))
     crates_position[field == 1] = 1
-    walls_position[field == -1] = 1
 
-    n_closest_coins = min(len(coins), 10)
-    coins = np.array(coins)
-    coins = coins[np.argpartition(np.array([cityblock_dist((x,y), coin)
-                                            for coin in coins]),
-                                  n_closest_coins-1)]
-    coord_to_closest_coin = find_next_step_to_closest_coin(field,
-                                                           others,
-                                                           (x,y),
-                                                           coins[:n_closest_coins])
-
-    if not ((coord_to_closest_coin[0] == x) and (coord_to_closest_coin[1] == y)):
-        dist = coord_to_closest_coin - [x,y]
-
-        if dist[0] == 0:
-            if dist[1] == 1:
-                coin_positions[0] = 1
-            else:
-                coin_positions[1] = 1
-        else:
-            if dist[0] == 1:
-                coin_positions[2] = 1
-            else:
-                coin_positions[3] = 1
-
-        assert(np.count_nonzero(coin_positions) == 1)
-        
-        #coin_positions[coord_to_closest_coin[0], coord_to_closest_coin[1]] = 1
+    ''' OWN POSITION '''
+    (_,_,_, self_pos) = game_state['self']
+    own_position = np.zeros((ROWS, COLS))
+    own_position[self_pos] = 1
     
-    own_position[x,y] = 1
-    explosion_positions = (game_state['explosion_map'] > 0).astype(np.int8)
-    
-    for i in range(ROWS):
-        for j in range(COLS):
-            if (i,j) in bombs:
-                bomb_positions[i,j] = 1
+    ''' DIRECTION TO CLOSEST COIN '''
+    # Find 10 closest coins, where `close` is w.r.t. the cityblock distance
+    game_coins = np.array(game_state['coins'])
+    n_closest_coins = min(len(game_coins), 10)
+    coins = game_coins[np.argpartition(np.array([cityblock_dist(self_pos, coin)
+                                                 for coin in game_coins]),
+                                       n_closest_coins-1)]
+    closest_coins = coins[:n_closest_coins]
 
-            if (i,j) in others:
-                enemy_positions[i,j] = 1
-                
+    enemies = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
+    coord_to_closest_coin = find_next_step_to_assets(field,
+                                                     enemies,
+                                                     self_pos,
+                                                     closest_coins)
+
+    coin_direction = direction_from_coordinates(self_pos,
+                                                coord_to_closest_coin)
+
+    ''' ENEMY DIRECTIONS '''    
+    coord_to_closest_enemy = find_next_step_to_assets(field,
+                                                      [],
+                                                      self_pos,
+                                                      enemies)
+    closest_enemy_direction = direction_from_coordinates(self_pos,
+                                                         coord_to_closest_enemy)
+    
     features = np.concatenate([
-        #crates_position.ravel(),
-        #walls_position.ravel(),
+        crates_position.ravel(),
         own_position.ravel(),
-        enemy_positions.ravel(),
-        coin_positions.ravel(),
-        #bomb_positions.ravel(),
-        #explosion_positions.ravel()
-    ]).astype(np.int8)
+        coin_direction.ravel(),
+        closest_enemy_direction.ravel(),
+    ])
 
     return features

@@ -28,9 +28,14 @@ def find_path(field, start, goal):
         return []
     return path[1:] # discard first element in path, since it's the start position
 
+'''
+Computes for each asset in `assets` the shortest path from `self_pos`
+to `asset` using A*.
 
-def find_next_step_to_closest_coin(field, others, self_pos, coins):
-    if len(coins) == 0:
+Returns the first coordinate of the shortest among all paths.
+'''
+def find_next_step_to_assets(field, others, self_pos, assets):
+    if len(assets) == 0:
         return self_pos
 
     for other in others:
@@ -39,8 +44,8 @@ def find_next_step_to_closest_coin(field, others, self_pos, coins):
     shortest_path_length = float("inf")
     best_coord = (0,0)
     
-    for coin in coins:
-        path = find_path(field, self_pos, coin)
+    for asset in assets:
+        path = find_path(field, self_pos, asset)
         
         if len(path) == 0:
             return self_pos
@@ -50,4 +55,37 @@ def find_next_step_to_closest_coin(field, others, self_pos, coins):
             best_coord = path[0]
 
     return best_coord
-        
+
+'''
+Returns 1-hot encoded 4-array where `self_pos` and `asset_pos`
+are two neighboring coordinates on the grid. Each component
+of the result corresponds to one direction, i.e., one component
+is 1 iff `self_pos` is directly above `asset_pos`, one component
+is 1 iff `self_pos` is left of `asset_pos` etc. 
+
+Should be used together with `find_next_step_to_assets`
+'''
+def direction_from_coordinates(self_pos, asset_pos):
+    direction = np.zeros((4,1))
+
+    self_pos = np.array(self_pos)
+    asset_pos = np.array(asset_pos)
+    
+    if not np.array_equal(self_pos, asset_pos):
+        dist = self_pos - asset_pos
+
+        if dist[0] == 0:
+            if dist[1] == 1:
+                direction[0] = 1
+            else:
+                direction[1] = 1
+        else:
+            if dist[0] == 1:
+                direction[2] = 1
+            else:
+                direction[3] = 1
+
+    return direction
+
+
+    

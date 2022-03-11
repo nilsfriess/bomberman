@@ -11,13 +11,14 @@ from .callbacks import state_to_features
 
 from .helpers import ACTIONS, index_of_action, cityblock_dist, find_path
 
+from main import N_ROUNDS
+
 import numpy as np
 
 MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
 VALID_ACTION = 'VALID_ACTION'
 NO_COIN_COLLECTED = 'NO_COIN_COLLECTED'
-#TOOK_DIRECTION_TO_CLOSEST_COIN = 'TOOK_DIRECTION_TO_CLOSEST_COIN'
 
 def setup_training(self):
     """
@@ -51,7 +52,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
-    old_features = state_to_features(old_game_state)
+    self.old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
 
     if e.COIN_COLLECTED not in events:
@@ -65,12 +66,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if e.WAITED in events:
         self.waited += 1
 
-
-        
-    if old_game_state is not None:
-        pass
-
-    self.transitions.append((old_features,
+    self.transitions.append((self.old_features,
                              self_action,
                              new_features,
                              reward_from_events(self, events)))
@@ -87,12 +83,11 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     This is also a good place to store an agent that you updated.
 
     :param self: The same object that is passed to all of your callbacks.
-    """
-    self.transitions.append((state_to_features(last_game_state),
-                             last_action,
-                             None,
-                             reward_from_events(self, events)))
-
+    """    
+    self.transitions.append((self.old_features,
+                            last_action,
+                            state_to_features(last_game_state),
+                            reward_from_events(self, events)))
     
     # Update Q by a Gradient Boost step
     self.QEstimator.update(self.transitions)
@@ -116,7 +111,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print()
     
     # Store the model
-    if last_game_state['round'] >= 99:
+    if last_game_state['round'] >= N_ROUNDS-1:
         dt = datetime.datetime.now()
         st = dt.strftime('%Y-%m-%d %H:%M:%S')
         with open(f"models/model_{st}.pt", "wb") as file:
@@ -125,19 +120,13 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 100,
-        #e.CRATE_DESTROYED: 30,
-        # e.BOMB_DROPPED: 1,
-        # NO_COIN_COLLECTED: -2,
-        e.WAITED: -20,
-        e.INVALID_ACTION: -20,
-        #e.KILLED_SELF: -50,
-        #MOVED_AWAY_FROM_COIN: -1,
-        #MOVED_TOWARDS_COIN: 1,
-        #VALID_ACTION: -1
+        e.KILLED_OPPONENT: 100,
+        e.COIN_COLLECTED: 60,
+        e.CRATE_DESTROYED: 10,
+        e.BOMB_DROPPED: -1,
+        e.WAITED: -9,
+        e.INVALID_ACTION: -10,
         VALID_ACTION: -1
-        # e.KILLED_OPPONENT: 5,
-        # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }
     reward_sum = 0
     for event in events:
