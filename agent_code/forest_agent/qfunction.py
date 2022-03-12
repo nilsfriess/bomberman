@@ -3,7 +3,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from collections import defaultdict
 
-from .helpers import ACTIONS, index_of_action
+from .helpers import ACTIONS, one_hot_action
 
 class QEstimator:
     def __init__(self, learning_rate, discount_factor):
@@ -11,40 +11,45 @@ class QEstimator:
         self.discount_factor = discount_factor
 
         self.regressor = GradientBoostingRegressor(warm_start=True,
+                                                   max_depth=3,
                                                    learning_rate = self.learning_rate,
-                                                   loss='squared_error',
                                                    n_estimators=1)
 
         self.first_update = True
         self.not_fitted = True
 
         # Number of steps for n-step temporal difference
-        self.steps = 1
+        self.steps = 2
     
     def estimate(self, state: np.array, action: str):
         if self.not_fitted:
             return 0.0
-        X = np.append(state, index_of_action(action)).reshape(1,-1)
+
+        a = one_hot_action(action)
+        
+        X = np.append(state, a).reshape(1,-1)
         return self.regressor.predict(X)[0]
     
     def update(self, transitions):
         if self.first_update:
             self.first_update = False
             self.feature_size = transitions[0][2].size
-        X = np.empty((len(transitions)-self.steps, self.feature_size + 1))
-        y = np.empty((len(transitions)-self.steps, 1))
+        X = np.empty((len(transitions)-1, self.feature_size + 6)) # 6 for one-hot-encoded action
+        y = np.empty((len(transitions)-1, 1))
 
-        for i in range(len(transitions)):
+        for i in range(1, len(transitions)):
             (old_state, action, new_state, rewards) = transitions[i]
-            if (i == 0) or (i > len(transitions) - self.steps):
-                continue
             
             accum = 0
             for t in range(self.steps):
-                (_,_,_, reward) = transitions[i+t]
-                accum += pow(self.discount_factor, t) * reward
+                if i+t < len(transitions):
+                    (_,_,_, reward) = transitions[i+t]
+                    accum += pow(self.discount_factor, t) * reward
 
-            (_,_,new_state,_) = transitions[i+self.steps-1]
+            if i+self.steps > len(transitions) - 1:
+                (_,_,new_state,_) = transitions[i]
+            else:
+                (_,_,new_state,_) = transitions[i+self.steps]
             Q_vals = [self.estimate(new_state, action) for action in ACTIONS]
             Q_max = max(Q_vals)
             
@@ -56,12 +61,14 @@ class QEstimator:
             temporal difference estimation of the expected return (see p.159f.
             in the lecture notes) minus the current guess of Q (i.e., Y is the
             current residual).
-            '''            
-            X[i-1,:] = np.append(old_state, index_of_action(action))
+            '''
+            X[i-1,:] = np.append(old_state, one_hot_action(action))
             y[i-1] = accum + pow(self.discount_factor, self.steps) * Q_max
-            
+
         self.regressor.fit(X, y.ravel())
-        self.regressor.n_estimators += 1 
+        self.regressor.n_estimators += 1
+
+        self.regressor.max_depth = 3
         self.not_fitted = False
 
             
