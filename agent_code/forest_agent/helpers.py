@@ -6,8 +6,11 @@ from settings import ROWS, COLS
 ''' ACTIONS '''
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
-def index_of_action(action: str) -> int:
-    return ACTIONS.index(action)
+def one_hot_action(action: str) -> np.array:
+    oh_action = np.zeros((6,1))
+    oh_action[ACTIONS.index(action)] = 1
+
+    return oh_action
 
 ''' PATHFINDING '''
 def cityblock_dist(x,y):
@@ -87,5 +90,17 @@ def direction_from_coordinates(self_pos, asset_pos):
 
     return direction
 
+def action_from_direction(direction):
+    if direction[0] == 1:
+        return 'UP'
 
-    
+    if direction[1] == 1:
+        return 'DOWN'
+
+    if direction[2] == 1:
+        return 'LEFT'
+
+    if direction[3] == 1:
+        return 'RIGHT'
+
+    return 'WAIT'
