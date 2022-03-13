@@ -17,6 +17,7 @@ MOVED_TOWARDS_COIN = 'MOVED_TOWARDS_COIN'
 MOVED_AWAY_FROM_COIN = 'MOVED_AWAY_FROM_COIN'
 VALID_ACTION = 'VALID_ACTION'
 NO_COIN_COLLECTED = 'NO_COIN_COLLECTED'
+DODGED_BOMB = 'DODGED_BOMB'
 
 LEARNING_RATE = None
 COUNT_TRAINED_GAMES = None
@@ -42,7 +43,7 @@ def setup_training(self):
 
     self.waited = 0
     self.invalid = 0
-    self.moved_towards = 0
+    self.bomb_dodged = 0
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -78,6 +79,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     if e.WAITED in events:
         self.waited += 1
+
+    if e.BOMB_EXPLODED in events and not e.KILLED_SELF in events and not e.GOT_KILLED in events:
+        events.append("DODGED_BOMB")
+        self.bomb_dodged += 1
 
 
 
@@ -127,6 +132,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.waited = 0
     print(f"Invalid moves: {self.invalid}")
     self.invalid = 0
+    print(f"Bombs dodged: {self.bomb_dodged}")
+    self.bomb_dodged = 0
     print(f"Survived {last_game_state['step']} steps")
     print()
 
@@ -137,7 +144,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         # with open(f"models/model_{st}.pt", "wb") as file:
         #     pickle.dump(self.QEstimator, file)
         with open(f"model.pt", "wb") as file:
-            pickle.dump(self.QEstimator, file)
+            pickle.dump(self.QEstimator.regressor, file)
 
     # with open(f"some_state.pt", "wb") as file2:
     #     pickle.dump(last_game_state, file2)
@@ -145,16 +152,16 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
-        e.COIN_COLLECTED: 10,
+        #e.COIN_COLLECTED: 10,
         #e.CRATE_DESTROYED: 30,
-        # e.BOMB_DROPPED: 1,
+        #e.BOMB_DROPPED: 50,
         # NO_COIN_COLLECTED: -2,
-        e.WAITED: -2,
-        e.INVALID_ACTION: -3,
-        e.KILLED_SELF: -50,
+        e.WAITED: -5,
+        e.INVALID_ACTION: -10,
         #MOVED_AWAY_FROM_COIN: -1,
         #MOVED_TOWARDS_COIN: 1,
-        VALID_ACTION: -1
+        VALID_ACTION: -1,
+        DODGED_BOMB: 1000
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }

@@ -4,6 +4,7 @@ def get_neighbourhood(x, y, radius):
     return 0
 
 # returns a list of indices and tuples, describing the fields that can be reached within n_steps or less, excluding the own position (x,y)
+# if n_steps == 1, the order is DOWN UP LEFT RIGHT
 def get_step_neighbourhood(x, y, n_steps):
     neighb = []
     counter = 0

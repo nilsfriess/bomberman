@@ -55,7 +55,7 @@ class QEstimator:
 
         self.regressor.fit(X, y.ravel())
         self.count_trained_games += 1
-        self.regressor.n_estimators += max(round(self.count_trained_games/100),2)
+        self.regressor.n_estimators += max(round(self.count_trained_games/1000),2)
         self.not_fitted = False
 
 
@@ -78,14 +78,14 @@ class QEstimator:
             X = np.empty((num_trans, self.feature_size + len(ACTIONS)))
             y = np.empty((num_trans, 1))
         else:
-            assert num_estim > 0, "Number of rec transitions is smaller than n_steps, set flag_reduce_steps to true"
+            assert num_estim > 0, "Number of rec transitions is smaller or equal than n_steps, set flag_reduce_steps to true"
             X = np.empty((num_estim, self.feature_size + len(ACTIONS)))
             y = np.empty((num_estim, 1))
 
         for i in range(num_estim):
             # calculate the discounted reward
-            # disc_reward = reward(this_tr) gamma^0 + reward(this_tr + 1) gamma^1 + ... + reward(this_tr + n_steps - 1) gamma ^(n_steps - 1) + gamma^(n_steps)
-            # then, y = disc-reward + max_{action} Q([x_old, action](this_tr + n_steps))
+            # disc_reward = reward(this_tr) gamma^0 + reward(this_tr + 1) gamma^1 + ... + reward(this_tr + n_steps - 1) gamma ^(n_steps - 1)
+            # then, y = disc_reward + gamma^(n_steps) max_{action} Q([x_old, action](this_tr + n_steps))
             disc_reward = 0
             for t in range(n_steps):
                 (_,_,_, reward) = transitions[i+t]

@@ -7,13 +7,12 @@ c = [(x,y) for (x,y,_) in l]
 
 a = np.array(((2,3),(3,5)))
 
-try:
-    if a[4,1] == 2:
-        print("fine")
-except IndexError:
-    print("also fine")
 
-t = np.zeros((7,7))
-for (_,(x,y)) in more_helpers.get_step_neighbourhood(0,0,2):
-    t[x+3,y+3] = 1
-print(t)
+# t = np.zeros((7,7))
+# print(more_helpers.get_step_neighbourhood(0,0,1))
+# for (_,(x,y)) in more_helpers.get_step_neighbourhood(0,0,2):
+#     t[x+3,y+3] = 1
+# print(t)
+
+for i in range(1,1):
+    print(i)
