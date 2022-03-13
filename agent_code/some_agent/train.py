@@ -131,13 +131,16 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print()
 
     # Store the model
-    if last_game_state['round'] %10 == 0:
+    if last_game_state['round']%10 == 0 and last_game_state['round'] > 49:
         dt = datetime.datetime.now()
         st = dt.strftime('%Y-%m-%d %H:%M:%S')
         # with open(f"models/model_{st}.pt", "wb") as file:
         #     pickle.dump(self.QEstimator, file)
         with open(f"model.pt", "wb") as file:
-            pickle.dump(self.QEstimator.regressor, file)
+            pickle.dump(self.QEstimator, file)
+
+    # with open(f"some_state.pt", "wb") as file2:
+    #     pickle.dump(last_game_state, file2)
 
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -146,12 +149,12 @@ def reward_from_events(self, events: List[str]) -> int:
         #e.CRATE_DESTROYED: 30,
         # e.BOMB_DROPPED: 1,
         # NO_COIN_COLLECTED: -2,
-        e.WAITED: -5,
-        e.INVALID_ACTION: -7,
+        e.WAITED: -2,
+        e.INVALID_ACTION: -3,
         e.KILLED_SELF: -50,
         #MOVED_AWAY_FROM_COIN: -1,
         #MOVED_TOWARDS_COIN: 1,
-        VALID_ACTION: -3
+        VALID_ACTION: -1
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }

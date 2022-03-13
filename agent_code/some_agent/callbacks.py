@@ -5,7 +5,8 @@ import pickle
 from settings import SCENARIOS, ROWS, COLS
 
 from .qfunction import QEstimator
-from .helpers import ACTIONS, index_of_action, find_next_step_to_closest_coin, cityblock_dist
+from .helpers import ACTIONS, index_of_action, find_next_step_to_closest_coin, cityblock_dist, direction_to_best_coin, blocked_neighbourhood
+from .more_helpers import get_neighbourhood, get_step_neighbourhood
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
@@ -29,8 +30,15 @@ def setup(self):
                                  discount_factor = 0.8)
     if os.path.isfile("model.pt"):
         with open("model.pt", "rb") as file:
-            self.QEstimator.regressor = pickle.load(file)
-            print("used stored parameters")
+            try:
+                stored_QEstimator = pickle.load(file)
+                with open("some_state.pt", "rb") as file2:
+                    some_state = pickle.load(file2)
+                temp = stored_QEstimator.estimate(state_to_features(some_state), "UP")
+                print("Using stored regression parameters")
+                self.QEstimator = stored_QEstimator
+            except ValueError:
+                print("Stored regression parameters have another shape, beginning to train new parameters, will overwrite old model after 50 steps.")
 
 
     self.initial_epsilon = EPSILON
@@ -65,86 +73,33 @@ def state_to_features(game_state: dict) -> np.array:
     crates_position = np.zeros((ROWS, COLS), dtype=np.int8)
     walls_position  = np.zeros((ROWS, COLS), dtype=np.int8)
     enemy_positions = np.zeros((ROWS, COLS), dtype=np.int8)
-    coin_positions  = np.zeros(4, dtype=np.int8)
     bomb_positions  = np.zeros((ROWS, COLS), dtype=np.int8)
 
+    explosion_positions = (game_state['explosion_map'] > 0).astype(np.int8)
     field = np.array(game_state['field'])
     bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
     others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
     (_,_,_, (x,y)) = game_state['self']
-    coins = game_state['coins']
+    coins = np.array(game_state['coins'])
+
+    this_agent_coo = np.array((x,y))
+    other_agent_coo = np.array(others)
 
     # Assemble features
     crates_position[field == 1] = 1
     walls_position[field == -1] = 1
 
-    n_closest_coins = min(len(coins), 3)
-    coins = np.array(coins)
-    coins = coins[np.argpartition(np.array([cityblock_dist((x,y), coin)
-                                            for coin in coins]),
-                                  n_closest_coins-1)]
 
-    # coord of the step towards the closest coin
-    coord_to_closest_coin = find_next_step_to_closest_coin(field, (x,y), coins[:n_closest_coins])
-
-    # exclude the case that the closest coin is on top of the agent
-    if not ((coord_to_closest_coin[0] == x) and (coord_to_closest_coin[1] == y)):
-        dist = coord_to_closest_coin - [x,y]
-
-        if dist[0] == 0:
-            if dist[1] == 1:
-                coin_positions[0] = 1
-            else:
-                coin_positions[1] = 1
-        else:
-            if dist[0] == 1:
-                coin_positions[2] = 1
-            else:
-                coin_positions[3] = 1
-
-        #assert(np.count_nonzero(coin_positions) == 1)
-
-
-    own_position[x,y] = 1
-    explosion_positions = (game_state['explosion_map'] > 0).astype(np.int8)
-
-    for i in range(ROWS):
-        for j in range(COLS):
-            if (i,j) in bombs:
-                bomb_positions[i,j] = 1
-
-            if (i,j) in others:
-                enemy_positions[i,j] = 1
-
-
-    this_agent_coo = np.array(game_state["self"][3]) #shape [coo_index]
-    num_opponents = len(game_state["others"])
-    other_agent_coo = np.empty((num_opponents, 2))
-    for index, tuple in enumerate(game_state["others"]):
-        other_agent_coo[index] = np.array(tuple[3])
-
-
-    # INVALID MOVEMENTS
-    # one hot encoding which direction is blocked, one means blocked:
-    blocked = np.zeros(4)
-
-    for index, (dx, dy) in [(0,(0,1)), (1,(0,-1)), (2,(1,0)), (3,(-1,0))]:
-        test_coordinate = this_agent_coo + np.array([dx, dy])
-        if field[test_coordinate[0],test_coordinate[1]] != 0:
-            blocked[index] = 1
-            continue
-        else:
-            for dummy_index, agent_coo in enumerate(other_agent_coo):
-                if np.array_equal(test_coordinate, agent_coo):
-                    blocked[index] = 1
-                    break # out of the agent loop
 
     # BOMBS
     # one hot encoding whether or not the 5 fields that can be reached in one step are in bomb danger
     bomb_danger = np.zeros(5)
 
-    exlplosions = np.zeros(4)
+    explosions = np.zeros(4)
 
+
+    coin_positions = direction_to_best_coin(field, x, y, coins, 3)
+    blocked = blocked_neighbourhood(field, others, x, y, 2)
 
 
     features = np.concatenate([
@@ -152,7 +107,7 @@ def state_to_features(game_state: dict) -> np.array:
         #walls_position.ravel(),
         #own_position.ravel(),
         #enemy_positions.ravel(),
-        coin_positions.ravel(),
+        coin_positions,
         #bomb_positions.ravel(),
         #explosion_positions.ravel()
         #bomb_danger,
