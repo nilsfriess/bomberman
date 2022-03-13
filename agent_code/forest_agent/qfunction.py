@@ -7,12 +7,11 @@ from .helpers import ACTIONS, one_hot_action
 
 class QEstimator:
     def __init__(self, learning_rate, discount_factor):
-        self.learning_rate = learning_rate
         self.discount_factor = discount_factor
 
         self.regressor = GradientBoostingRegressor(warm_start=True,
                                                    max_depth=3,
-                                                   learning_rate = self.learning_rate,
+                                                   learning_rate = learning_rate,
                                                    n_estimators=1)
 
         self.first_update = True
@@ -20,6 +19,9 @@ class QEstimator:
 
         # Number of steps for n-step temporal difference
         self.steps = 2
+
+    def update_learning_rate(self, new_rate):
+        self.regressor.learning_rate = new_rate
     
     def estimate(self, state: np.array, action: str):
         if self.not_fitted:

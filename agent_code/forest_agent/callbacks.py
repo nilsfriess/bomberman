@@ -29,19 +29,23 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    self.initial_learning_rate = 0.15
+    self.learning_rate = self.initial_learning_rate
+    
+    self.initial_epsilon = 0.4
+    self.epsilon = self.initial_epsilon
+    
+    self.filter_actions = False
+    
     if os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.QEstimator = pickle.load(file)
             print("LOADED MODEL")
-    else:    
-        self.QEstimator = QEstimator(learning_rate = 0.1,
-                                     discount_factor = 0.98)
-
-    self.initial_epsilon = 0.3
-
-
-
-def random_action(allow_bombs = True):
+    else:
+        self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
+                                     discount_factor = 0.95)
+        
+def random_action(allow_bombs = False):
     if allow_bombs:
         return np.random.choice(ACTIONS)
     else:
@@ -59,17 +63,17 @@ def act(self, game_state: dict) -> str:
 
     # Compute stupid actions
     stupid_actions = []
-    for action in ACTIONS:
-        if action_is_stupid(game_state, action):
-            stupid_actions.append(action)
 
-    #print(f"Stupid actions: {stupid_actions}")
+    if self.filter_actions:
+        for action in ACTIONS:
+            if action_is_stupid(game_state, action):
+                stupid_actions.append(action)
 
-    if ('BOMB' not in stupid_actions) and (len(stupid_actions) == 5):
-        # Too late, every direction is stupid
-        stupid_actions = []
-    
-    if np.random.uniform() < 1-self.initial_epsilon:
+        if ('BOMB' not in stupid_actions) and (len(stupid_actions) == 5):
+            # Too late, every direction is stupid
+            stupid_actions = []
+        
+    if np.random.uniform() < 1-self.epsilon:
         state = state_to_features(game_state)
         av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
 
@@ -105,7 +109,7 @@ def state_to_features(game_state: dict) -> np.array:
 
     enemies = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
     coord_to_closest_crate = find_next_step_to_assets(field,
-                                                      enemies,
+                                                      [],
                                                       self_pos,
                                                       crates)
     crate_direction = direction_from_coordinates(self_pos,
@@ -141,133 +145,67 @@ def state_to_features(game_state: dict) -> np.array:
     closest_enemy_direction = direction_from_coordinates(self_pos,
                                                          coord_to_closest_enemy)
 
-    # ''' RISK-FACTORS OF SURROUNDING TILES '''
-    # risks = np.zeros((9,1))
+    ''' BOMB DIRECTION '''
+    bombs = [pos for (pos, _) in game_state['bombs']]
+    coord_to_closest_bomb = find_next_step_to_assets(field,
+                                                     [],
+                                                     self_pos,
+                                                     bombs)
+    closest_bomb_direction = direction_from_coordinates(self_pos,
+                                                        coord_to_closest_bomb)
 
-    # bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
-    # explosions = game_state['explosion_map']
 
-    # x,y = self_pos
+    ''' RISK FACTOR OF THE FOUR DIRECTIONS '''
+    risk = np.zeros((4,1)) # UP, DOWN, LEFT, RIGHT
 
-    # total_risk = 0
+    for i,action in enumerate(['UP', 'DOWN', 'LEFT', 'RIGHT']):
+            if action_is_stupid(game_state, action):
+                risk[i] = 1
     
-    # for k in [-2,-1,1,2]:
-    #     if (x+k < 0) or (x+k) > ROWS-1:
-    #         continue
-    #     coord_on_board = (x+k,y)
-    #     total_risk += explosions[coord_on_board]
-
-    #     if (x+k,y) in bombs:
-    #         total_risk += 1
-
-    # for k in [-2,-1,1,2]:
-    #     if (y+k < 0) or (y+k) > ROWS-1:
-    #         continue
-    #     coord_on_board = (x,y+k)
-    #     total_risk += explosions[coord_on_board]
-
-    #     if (x,y+k) in bombs:
-    #         total_risk += 1
-
-    # if self_pos in bombs:
-    #     total_risk += 1
-    # total_risk += 2*explosions[self_pos]
-        
-    # risks[0] = explosions[x-1, y]
-    # risks[1] = explosions[x+1, y]
-    # risks[2] = explosions[x, y-1]
-    # risks[3] = explosions[x, y+1]
-    # risks[4] = explosions[x,y]
-
-    # if (x-1,y) in bombs:
-    #     risks[0] += 1
-    # if (x+1,y) in bombs:
-    #     risks[1] += 1
-    # if (x,y-1) in bombs:
-    #     risks[2] += 1
-    # if (x,y+1) in bombs:
-    #     risks[3] += 1
-    # if (x,y) in bombs:
-    #     risks[4] += 1
-
-    # total_risk = np.sum(risks)
-
-    # ''' EXPLOSIONS AROUND '''
-    # explosions_around = np.zeros((4,1))
-    
-    # explosions = game_state['explosion_map']
-    # x,y = self_pos
-
-    # if explosions[x-1,y] > 0:
-    #     explosions_around[0] = 1
-    # if explosions[x+1,y] > 0:
-    #     explosions_around[1] = 1
-    # if explosions[x,y-1] > 0:
-    #     explosions_around[2] = 1
-    # if explosions[x,y+1] > 0:
-    #     explosions_around[3] = 1
-
-    # ''' DIRECTION TO CLOSEST BOMB '''    
-    # bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
-    # if len(bombs) == 0:
-    #     bomb_direction = np.ones((4,1))
-    #     coord_to_closest_bomb = np.array([-1,-1])
-        
-    # else:
-    #     coord_to_closest_bomb = find_next_step_to_assets(field,
-    #                                                      [],
-    #                                                      self_pos,
-    #                                                      bombs)
-    #     bomb_direction = direction_from_coordinates(self_pos,
-    #                                                 coord_to_closest_bomb)
-
-    #     coord_to_closest_bomb = np.array(coord_to_closest_bomb)
-    
-    ''' 5x5 window around agent of blocked (wall/crate), free tiles and explosions '''    
-    crates_window = np.zeros((5,5))
+    ''' 7x7 window around agent of blocked (wall/crate), free tiles and explosions '''    
+    crates_window = np.zeros((7,7))
     x,y = self_pos
-    for i in [-2,-1,0,1,2]:
-        for j in [-2,-1,0,1,2]:
+    for i in [-3,-2,-1,0,1,2,3]:
+        for j in [-3,-2,-1,0,1,2,3]:
             coord_on_field = (x+i, y+j)
             
             if (x+i < 0)\
                or (x+i >= field.shape[0])\
                or (y+j < 0)\
                or (y+j >= field.shape[1]):
-                continue
+                crates_window[i+2,j+2] = 1
             else:
                 if field[coord_on_field] == 1:
                     crates_window[i+2,j+2] = 1
 
     explosions = game_state['explosion_map']
-    explosion_window = np.zeros((5,5))
+    explosion_window = np.zeros((7,7))
 
-    for i in [-2,-1,0,1,2]:
-        for j in [-2,-1,0,1,2]:
+    for i in [-3,-2,-1,0,1,2,3]:
+        for j in [-3,-2,-1,0,1,2,3]:
             coord_on_field = (x+i, y+j)
             
             if (x+i < 0)\
                or (x+i >= field.shape[0])\
                or (y+j < 0)\
                or (y+j >= field.shape[1]):
-                continue
+                explosion_window[i+2,j+2] = 1
             else:
-                if explosions[coord_on_field] > 0:
+                if explosions[coord_on_field] > 1:
                     explosion_window[i+2,j+2] = 1
 
-    bombs = [pos for (pos, _) in game_state['bombs']]
-    bombs_window = np.zeros((5,5))
+    bombs_window = np.zeros((7,7))
     
     if len(bombs) > 0:
-        for i in [-2,-1,0,1,2]:
-            for j in [-2,-1,0,1,2]:
+        for i in [-3,-2,-1,0,1,2,3]:
+            for j in [-3,-2,-1,0,1,2,3]:
                 coord_on_field = (x+i, y+j)
                 
                 if (x+i < 0)\
                    or (x+i >= field.shape[0])\
                    or (y+j < 0)\
                    or (y+j >= field.shape[1]):
-                    continue
+                    bombs_window[i+2,j+2] = 1
                 else:
                     if coord_on_field in bombs:
                         bombs_window[i+2,j+2] = 1
@@ -289,8 +227,9 @@ def state_to_features(game_state: dict) -> np.array:
         crates_window.ravel(),
         explosion_window.ravel(),#
         bombs_window.ravel(),
-        #bomb_direction.ravel(),
+        closest_bomb_direction.ravel(),
         #coord_to_closest_bomb.ravel()
+        risk.ravel(),
         [min_bomb_dist]
     ])
 
