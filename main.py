@@ -11,8 +11,6 @@ from replay import ReplayWorld
 
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
 
-N_ROUNDS = 0
-
 class Timekeeper:
     def __init__(self, interval):
         self.interval = interval
@@ -94,10 +92,8 @@ def world_controller(world, n_rounds, /,
 
     world.end()
 
-
 def main(argv = None):
     parser = ArgumentParser()
-
     subparsers = parser.add_subparsers(dest='command_name', required=True)
 
     # Run arguments
@@ -142,6 +138,7 @@ def main(argv = None):
                          help="Make a video from the game")
 
     args = parser.parse_args(argv)
+    
     if args.command_name == "replay":
         args.no_gui = False
         args.n_rounds = 1
@@ -176,8 +173,6 @@ def main(argv = None):
         gui = GUI(world)
     else:
         gui = None
-
-    N_ROUNDS = args.n_rounds
         
     world_controller(world, args.n_rounds,
                      gui=gui, every_step=every_step, turn_based=args.turn_based,
