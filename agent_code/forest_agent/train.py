@@ -277,7 +277,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     print(f"Total reward: {s}")
     print(f"Coins collected: {last_game_state['self'][1]}")
-    print(f"Invalid or waited: {self.invalid / 400.0 * 100:.0f}%")
+    print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
     self.invalid = 0
     print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
     self.bombs = 0
