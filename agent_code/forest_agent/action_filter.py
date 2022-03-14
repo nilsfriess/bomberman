@@ -63,72 +63,11 @@ def action_is_stupid(game_state : dict, action) -> bool:
         if new_explosion_map[x,y] > 0:
             return True
 
-    return False
+    return False           
 
+def rand_argmax(arr):
+    return np.random.choice(np.where(arr == np.max(arr))[0])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-                
-
-    # possible_actions = []
-
-    # if len(bombs) == 0:
-    #     return False
-    # else:
-    #     bomb_avoiding = bomb_avoiding_actions(game_state)
-    #     if action in bomb_avoiding:
-    #         return False
-    #     else:
-    #         return True
-                
-    # if explosion_map[x+1,y] > 0:
-    #     if 'RIGHT' in possible_actions:
-    #         possible_actions.remove('RIGHT')
-
-    # if explosion_map[x-1,y] > 0:
-    #     if 'LEFT' in possible_actions:
-    #         possible_actions.remove('LEFT')
-
-    # if explosion_map[x,y+1] > 0:
-    #     if 'DOWN' in possible_actions:
-    #         possible_actions.remove('DOWN')
-
-    # if explosion_map[x,y-1] > 0:
-    #     if 'UP' in possible_actions:
-    #         possible_actions.remove('UP')
-
-    # # if len(possible_actions) == 0:
-    # #     print("CAUTION: FOUND NO USEFUL ACTION")
-    # #     return False
-    # # else:        
-    # #     if (action in possible_actions):
-    # #         print(f"Action {action} is useful")
-    # #         return False
-    # #     else:
-    # #         print(f"Action {action} is stupid")
-    # #         return True
-
-    # if (action in possible_actions) or (len(possible_actions) == 0):
-    #     #print(f"Action {action} is useful (or found none)")
-    #     return False
-    # else:
-    #     #print(f"Action {action} is stupid")
-    #     return True
-
-
-           
-    
 def bomb_avoiding_actions(game_state):
     field = game_state['field']
     bombs = [pos for (pos,_) in game_state['bombs']]
@@ -136,16 +75,48 @@ def bomb_avoiding_actions(game_state):
 
     possible_actions = []
     if ((x,y) in bombs):
-        # We are standing on bomb, find free directions
-        if field[x,y+1] == 0:
-            possible_actions.append('DOWN')
-        if field[x,y-1] == 0:
-            possible_actions.append('UP')
-        if field[x+1,y] == 0:
-            possible_actions.append('RIGHT')
-        if field[x-1,y] == 0:
-            possible_actions.append('LEFT')
+        # We are standing on bomb, find directions with most free tiles in that direction
+        free_tiles = {
+            'DOWN': 0,
+            'UP': 0,
+            'RIGHT': 0,
+            'LEFT': 0
+        } # DOWN, UP, RIGHT, LEFT
+        k = 1
+        while field[x,y+k] == 0:
+            free_tiles['DOWN'] += 1
+            k += 1
+        k = 1
+        while field[x,y-k] == 0:
+            free_tiles['UP'] += 1
+            k += 1
+        k = 1
+        while field[x+k,y] == 0:
+            free_tiles['RIGHT'] += 1
+            k += 1
+        k = 1
+        while field[x-k,y] == 0:
+            free_tiles['LEFT'] += 1
+            k += 1
 
+        #print(free_tiles)
+        dist_as_arr = np.array(list(free_tiles.values()))
+        best_action = list(free_tiles.keys())[rand_argmax(dist_as_arr)]
+            
+        #best_action = list(free_tiles)[rand_argmax(list(free_tiles.values()))]
+        #print(f"Standing on bomb, best direction {best_action}")
+    
+        # if field[x,y+1] == 0:
+        #     possible_actions.append('DOWN')
+        # if field[x,y-1] == 0:
+        #     possible_actions.append('UP')
+        # if field[x+1,y] == 0:
+        #     possible_actions.append('RIGHT')
+        # if field[x-1,y] == 0:
+        #     possible_actions.append('LEFT')
+
+        possible_actions.append(best_action)
+        
         return possible_actions, True
 
     bomb_near_us = False
