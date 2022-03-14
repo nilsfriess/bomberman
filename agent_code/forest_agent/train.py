@@ -72,6 +72,9 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
+    if old_game_state is None:
+        return
+    
     self.old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
 
@@ -92,91 +95,90 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         if new_game_state['self'][3] in corners:
             events.append(BOMB_IN_CORNER)
         
-    if len(self.old_features) > 0:
-        old_self_pos = old_game_state['self'][3]
-        new_self_pos = new_game_state['self'][3]
-        explosion_map = new_game_state['explosion_map']
+    old_self_pos = old_game_state['self'][3]
+    new_self_pos = new_game_state['self'][3]
+    explosion_map = new_game_state['explosion_map']
+    
+    if (explosion_map[old_self_pos] > 0) and\
+       (explosion_map[new_self_pos] == 0) and\
+       (old_self_pos != new_self_pos):
+        events.append(AVOIDED_BOMB)
+        self.avoided_bomb += 1
         
-        if (explosion_map[old_self_pos] > 0) and\
-           (explosion_map[new_self_pos] == 0) and\
-           (old_self_pos != new_self_pos):
-            events.append(AVOIDED_BOMB)
-            self.avoided_bomb += 1
+    old_bomb_dist = self.old_features[-1]
+    new_bomb_dist = new_features[-1]
 
-        old_bomb_dist = self.old_features[-1]
-        new_bomb_dist = new_features[-1]
+    if old_bomb_dist != -1:
+        if new_bomb_dist > old_bomb_dist:
+            events.append(MOVED_AWAY_FROM_BOMB)
+            self.moved_away += 1
+        else:
+            events.append(MOVED_NOT_AWAY_FROM_BOMB)
 
-        if old_bomb_dist != -1:
-            if new_bomb_dist > old_bomb_dist:
-                events.append(MOVED_AWAY_FROM_BOMB)
-                self.moved_away += 1
-            else:
-                events.append(MOVED_NOT_AWAY_FROM_BOMB)
-
-        bombs = [pos for (pos, _) in old_game_state['bombs']]
-        if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
-            print("Waited on bomb")
-            events.append(WAITED_ON_BOMB)
+    bombs = [pos for (pos, _) in old_game_state['bombs']]
+    if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
+        print("Waited on bomb")
+        events.append(WAITED_ON_BOMB)
 
         # RISK
-        action_risks = self.old_features[-5:-1]
-        action_risk_strings = []
-        if action_risks[0] == 1:
-            action_risk_strings.append('UP')
-        if action_risks[1] == 1:
-            action_risk_strings.append('DOWN')
-        if action_risks[2] == 1:
-            action_risk_strings.append('LEFT')
-        if action_risks[3] == 1:
-            action_risk_strings.append('RIGHT')
+    action_risks = self.old_features[-5:-1]
+    action_risk_strings = []
+    if action_risks[0] == 1:
+        action_risk_strings.append('UP')
+    if action_risks[1] == 1:
+        action_risk_strings.append('DOWN')
+    if action_risks[2] == 1:
+        action_risk_strings.append('LEFT')
+    if action_risks[3] == 1:
+        action_risk_strings.append('RIGHT')
 
-        if len(action_risk_strings) > 0:
-            if self_action not in action_risk_strings:
-                events.append(USEFUL_DIRECTION)
-            else:
-                events.append(NOT_USEFUL_DIRECTION)
+    if len(action_risk_strings) > 0:
+        if self_action not in action_risk_strings:
+            events.append(USEFUL_DIRECTION)
+        else:
+            events.append(NOT_USEFUL_DIRECTION)
 
-        if self_action == 'BOMB':
-            (x,y) = old_game_state['self'][3]
-            field = np.array(old_game_state['field'])
-            enemies = [(x,y) for (_,_,_,(x,y)) in old_game_state['others']]
+    if self_action == 'BOMB':
+        (x,y) = old_game_state['self'][3]
+        field = np.array(old_game_state['field'])
+        enemies = [(x,y) for (_,_,_,(x,y)) in old_game_state['others']]
             
-            bomb_was_useless = True
-            for i in [-3,-2,-1,1,2,3]:
-                # Look for targets left and right
-                coord_on_field = (x+i, y)
+        bomb_was_useless = True
+        for i in [-3,-2,-1,1,2,3]:
+            # Look for targets left and right
+            coord_on_field = (x+i, y)
 
-                if (x+i < 0)\
-                   or (x+i >= field.shape[0]):
-                    continue
+            if (x+i < 0)\
+               or (x+i >= field.shape[0]):
+                continue
 
-                if field[coord_on_field] == 1:
-                    bomb_was_useless = False
-                    break
+            if field[coord_on_field] == 1:
+                bomb_was_useless = False
+                break
 
-                if coord_on_field in enemies:
-                    bomb_was_useless = False
-                    break
+            if coord_on_field in enemies:
+                bomb_was_useless = False
+                break
 
-                # Look for targets above and below
-                coord_on_field = (x, y+i)
+            # Look for targets above and below
+            coord_on_field = (x, y+i)
+            
+            if (y+i < 0)\
+               or (y+i >= field.shape[1]):
+                continue
 
-                if (y+i < 0)\
-                   or (y+i >= field.shape[1]):
-                    continue
+            if field[coord_on_field] == 1:
+                bomb_was_useless = False
+                break
 
-                if field[coord_on_field] == 1:
-                    bomb_was_useless = False
-                    break
-
-                if coord_on_field in enemies:
-                    bomb_was_useless = False
-                    break
+            if coord_on_field in enemies:
+                bomb_was_useless = False
+                break
                 
-            if bomb_was_useless:
-                events.append(USELESS_BOMB)
-            else:
-                events.append(USEFUL_BOMB)
+        if bomb_was_useless:
+            events.append(USELESS_BOMB)
+        else:
+            events.append(USEFUL_BOMB)
                 
         # if self_action not in action_risk_strings:
         #     # Action was not risky
