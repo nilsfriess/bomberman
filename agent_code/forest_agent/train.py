@@ -7,7 +7,7 @@ import random
 
 from settings import COLS, ROWS
 import events as e
-from .state_transform import state_to_features
+from .callbacks import state_to_features
 
 from .helpers import ACTIONS, cityblock_dist, find_path, action_from_direction
 

@@ -38,6 +38,10 @@ class QEstimator:
 
         X,y = self.temporal_difference(transitions, self.steps)
 
+        if (X is None) or (y is None):
+            # Too few transitions recorded
+            return
+
         self.regressor.fit(X, y.ravel())
         self.regressor.n_estimators += 1
 
@@ -53,7 +57,8 @@ class QEstimator:
             X = np.empty((num_trans, self.feature_size + len(ACTIONS)))
             y = np.empty((num_trans, 1))
         else:
-            assert num_estim > 0, "Number of transitions is <= steps"
+            if num_estim <= 0:
+                return None, None
             X = np.empty((num_estim, self.feature_size + len(ACTIONS)))
             y = np.empty((num_estim, 1))
 
