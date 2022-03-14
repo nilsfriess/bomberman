@@ -7,12 +7,14 @@ from settings import SCENARIOS, ROWS, COLS
 from time import sleep
 
 from .qfunction import QEstimator
-from .helpers import ACTIONS, \
+from .base_helpers import ACTIONS, \
     find_next_step_to_assets,\
     direction_from_coordinates,\
     cityblock_dist
 from .action_filter import action_is_stupid
-from .state_transform import state_to_features
+
+from .state_transform_leif import state_to_features, train_act
+#from .state_transform_nils import state_to_features, train_act
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
@@ -36,25 +38,13 @@ def setup(self):
     self.initial_epsilon = 0.4
     self.epsilon = self.initial_epsilon
     
-    self.filter_actions = True
-    self.filter_prob = 0.9
-    
-    if os.path.isfile("models/model.pt"):
+    if False and os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.QEstimator = pickle.load(file)
             print("LOADED MODEL")
     else:
         self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
                                      discount_factor = 0.95)
-        
-def random_action(allow_bombs = True):
-    if allow_bombs:
-        #print(ACTIONS)
-        #return np.random.choice(ACTIONS)
-        ind = np.random.randint(len(ACTIONS))
-        return ACTIONS[ind]
-    else:
-        return np.random.choice(ACTIONS[:-1])
                 
 def act(self, game_state: dict) -> str:
     """
@@ -66,37 +56,14 @@ def act(self, game_state: dict) -> str:
     :return: The action to take as a string.
     """
 
-    # Compute stupid actions
-    stupid_actions = []
-
-    if self.filter_actions and (np.random.uniform() < self.filter_prob):
-        for action in ACTIONS:
-            if action_is_stupid(game_state, action):
-                stupid_actions.append(action)
-
-        if ('BOMB' not in stupid_actions) and (len(stupid_actions) == 5):
-            # Too late, every direction is stupid
-            stupid_actions = []
-
-        if (len(stupid_actions) == 6):
-            stupid_actions = []
-            
-    if np.random.uniform() < 1-self.epsilon:
+    if not self.train:
         state = state_to_features(game_state)
-        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
+        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])
+        best_action = ACTIONS[np.argmax(av)]
 
-        action = ACTIONS[np.argmax(av)]
+        return best_action
 
-        while action in stupid_actions:
-            action = random_action()
-            
     else:
-        action = random_action()
-        while action in stupid_actions:
-            action = random_action()
-
-    # print(f"Chose: {action}")
-    return action
-
+        return train_act(self, game_state)
 
 

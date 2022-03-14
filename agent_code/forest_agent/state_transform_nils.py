@@ -1,8 +1,10 @@
 import numpy as np
 
-from .helpers import find_next_step_to_assets,\
+from .base_helpers import find_next_step_to_assets,\
     direction_from_coordinates,\
-    cityblock_dist
+    cityblock_dist,\
+    ACTIONS
+
 from .action_filter import action_is_stupid
 
 def state_to_features(game_state: dict) -> np.array:
@@ -150,3 +152,45 @@ def state_to_features(game_state: dict) -> np.array:
     #print(len(features))
 
     return features
+
+
+def random_action(allow_bombs = True):
+    if allow_bombs:
+        return np.random.choice(ACTIONS)
+    else:
+        return np.random.choice(ACTIONS[:-1])
+
+def train_act(self, game_state:dict) -> str:
+    filter_prob = 0.9
+    
+    # Compute stupid actions
+    stupid_actions = []
+
+    if np.random.uniform() < filter_prob:
+        for action in ACTIONS:
+            if action_is_stupid(game_state, action):
+                stupid_actions.append(action)
+
+        if ('BOMB' not in stupid_actions) and (len(stupid_actions) == 5):
+            # Too late, every direction is stupid
+            stupid_actions = []
+
+        if (len(stupid_actions) == 6):
+            stupid_actions = []
+            
+    if np.random.uniform() < 1-self.epsilon:
+        state = state_to_features(game_state)
+        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
+
+        action = ACTIONS[np.argmax(av)]
+
+        while action in stupid_actions:
+            action = random_action()
+            
+    else:
+        action = random_action()
+        while action in stupid_actions:
+            action = random_action()
+
+    # print(f"Chose: {action}")
+    return action

@@ -9,9 +9,10 @@ from settings import COLS, ROWS
 import events as e
 from .callbacks import state_to_features
 
-from .helpers import ACTIONS, cityblock_dist, find_path, action_from_direction
+from .base_helpers import ACTIONS, cityblock_dist, find_path, action_from_direction
 
-from .rewards import *
+from .training_helpers_leif import *
+#rom .training_helpers_nils import *
 
 import numpy as np
 
@@ -26,11 +27,7 @@ def setup_training(self):
     # experience buffer
     self.transitions = []
 
-    self.invalid = 0
-    self.moved_away = 0
-    self.avoided_bomb = 0
-    self.bombs = 0
-    self.killed_self = 0
+    setup_custom_vars(self)
     
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -55,165 +52,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
 
-    # if e.WAITED in events:
-    #     events.append(e.INVALID_ACTION)
-    
-    if e.INVALID_ACTION not in events:
-        events.append(VALID_ACTION)
+    additional_events = compute_custom_events(self,old_game_state,
+                                              self_action,
+                                              new_game_state,
+                                              events)
 
-    if e.INVALID_ACTION in events:
-        self.invalid += 1
-
-    if self_action == 'BOMB' and (e.INVALID_ACTION not in events):
-        self.bombs += 1
-
-    corners = [(1,1), (1,15), (15,1), (15,15)]
-    if (self_action == 'BOMB'):
-        if new_game_state['self'][3] in corners:
-            events.append(BOMB_IN_CORNER)
-        
-    old_self_pos = old_game_state['self'][3]
-    new_self_pos = new_game_state['self'][3]
-    explosion_map = new_game_state['explosion_map']
-    
-    if (explosion_map[old_self_pos] > 0) and\
-       (explosion_map[new_self_pos] == 0) and\
-       (old_self_pos != new_self_pos):
-        events.append(AVOIDED_BOMB)
-        self.avoided_bomb += 1
-        
-    old_bomb_dist = self.old_features[-1]
-    new_bomb_dist = new_features[-1]
-
-    if old_bomb_dist != -1:
-        if new_bomb_dist > old_bomb_dist:
-            events.append(MOVED_AWAY_FROM_BOMB)
-            self.moved_away += 1
-        else:
-            events.append(MOVED_NOT_AWAY_FROM_BOMB)
-
-    bombs = [pos for (pos, _) in old_game_state['bombs']]
-    if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
-        print("Waited on bomb")
-        events.append(WAITED_ON_BOMB)
-
-        # RISK
-    action_risks = self.old_features[-5:-1]
-    action_risk_strings = []
-    if action_risks[0] == 1:
-        action_risk_strings.append('UP')
-    if action_risks[1] == 1:
-        action_risk_strings.append('DOWN')
-    if action_risks[2] == 1:
-        action_risk_strings.append('LEFT')
-    if action_risks[3] == 1:
-        action_risk_strings.append('RIGHT')
-
-    if len(action_risk_strings) > 0:
-        if self_action not in action_risk_strings:
-            events.append(USEFUL_DIRECTION)
-        else:
-            events.append(NOT_USEFUL_DIRECTION)
-
-    if self_action == 'BOMB':
-        (x,y) = old_game_state['self'][3]
-        field = np.array(old_game_state['field'])
-        enemies = [(x,y) for (_,_,_,(x,y)) in old_game_state['others']]
-            
-        bomb_was_useless = True
-        for i in [-3,-2,-1,1,2,3]:
-            # Look for targets left and right
-            coord_on_field = (x+i, y)
-
-            if (x+i < 0)\
-               or (x+i >= field.shape[0]):
-                continue
-
-            if field[coord_on_field] == 1:
-                bomb_was_useless = False
-                break
-
-            if coord_on_field in enemies:
-                bomb_was_useless = False
-                break
-
-            # Look for targets above and below
-            coord_on_field = (x, y+i)
-            
-            if (y+i < 0)\
-               or (y+i >= field.shape[1]):
-                continue
-
-            if field[coord_on_field] == 1:
-                bomb_was_useless = False
-                break
-
-            if coord_on_field in enemies:
-                bomb_was_useless = False
-                break
-                
-        if bomb_was_useless:
-            events.append(USELESS_BOMB)
-        else:
-            events.append(USEFUL_BOMB)
-                
-        # if self_action not in action_risk_strings:
-        #     # Action was not risky
-        #     print("Not risky action")
-        # else:
-        #     print("Risky action")
-            
-        # coin_direction = self.old_features[4 + 17*17:4 + 17*17 + 4]
-        # if self_action == action_from_direction(coin_direction):
-        #     events.append(MOVED_TOWARDS_COIN)
-        # else:
-        #     events.append(MOVED_AWAY_FROM_COIN)
-        
-        # old_risk = self.old_features[-2]
-        # new_risk = new_features[-2]
-
-        # if old_risk > 0:
-        #     # print(f"Old risk: {old_risk}, new risk: {new_risk}. ", end='')
-            
-        #     if new_risk >= old_risk:
-        #         events.append(STAYED_IN_RISK_REGION)
-        #     else:
-        #         events.append(MOVED_AWAY_FROM_RISK)
-        
-        # towards_bomb_coord = self.old_features[-2:]
-        # if not np.array_equal(towards_bomb_coord, [-1,-1]):
-        #     if np.array_equal(towards_bomb_coord, new_game_state['self'][3]):
-        #         events.append(DID_NOT_MOVE_AWAY_FROM_BOMB)
-        #     else:
-        #         events.append(DID_MOVE_AWAY_FROM_BOMB)
-
-        # bomb_direction = self.old_features[-6:-2]
-        # if not np.all(bomb_direction == 1) and not np.all(bomb_direction == 0):
-        #     action_towards_bomb = action_from_direction(bomb_direction)
-
-        #     if (action_towards_bomb == 'UP') or (action_towards_bomb == 'DOWN'):
-        #         if (self_action == 'LEFT') or (self_action == 'RIGHT'):
-        #             events.append(USEFUL_DIRECTION)
-        #         else:
-        #             events.append(NOT_USEFUL_DIRECTION)
-        #     else:
-        #         if (self_action == 'UP') or (self_action == 'DOWN'):
-        #             events.append(USEFUL_DIRECTION)
-        #         else:
-        #             events.append(NOT_USEFUL_DIRECTION)
-
-        # if USEFUL_DIRECTION in events:
-        #     print("Useful direction")
-        # if NOT_USEFUL_DIRECTION in events:
-        #     print("Not useful direction")
-        # old_bomb_dist = self.old_features[-1]
-        # new_bomb_dist = new_features[-1]
-
-        # if (old_bomb_dist >= 0) and (old_bomb_dist < 5) and (new_bomb_dist != -1):
-        #     if new_bomb_dist <= old_bomb_dist:
-        #         events.append(DID_NOT_MOVE_AWAY_FROM_BOMB)
-        #     else:
-        #         events.append(DID_MOVE_AWAY_FROM_BOMB)
+    for e in additional_events:
+        events.append(e)
     
     self.transitions.append((self.old_features,
                              self_action,
@@ -232,10 +77,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     This is also a good place to store an agent that you updated.
 
     :param self: The same object that is passed to all of your callbacks.
-    """
-    if e.SURVIVED_ROUND not in events:
-        events.append(DID_NOT_SURVIVE)
-    
+    """    
     self.transitions.append((self.old_features,
                             last_action,
                             state_to_features(last_game_state),
@@ -244,35 +86,14 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     # Update Q by a Gradient Boost step
     self.QEstimator.update(self.transitions)
 
-    s = 0
-    for (_,_,_,reward) in self.transitions:
-        s += reward
-
-    if e.KILLED_SELF in events:
-        self.killed_self += 1
+    # Print stats
+    print_progress(self, last_game_state, last_action, events)
         
-    # After the gradient boost update, discard the transitions
-    self.transitions = []
-
-    print(f"Total reward: {s}")
-    print(f"Coins collected: {last_game_state['self'][1]}")
-    print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
-    self.invalid = 0
-    print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
-    self.bombs = 0
-    self.killed_self = 0
-    print(f"Moved away from bomb {self.moved_away} times, avoided {self.avoided_bomb} times")
-    self.avoided_bomb = 0
-    self.moved_away = 0
-    print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
-    self.epsilon = self.initial_epsilon/(1 + 0.04*last_game_state['round'])
-    self.learning_rate = self.initial_learning_rate/(1 + 0.02*last_game_state['round'])
-    self.QEstimator.update_learning_rate(self.learning_rate)
-    print()
-
     # Store the model
-    if last_game_state['round'] % 100 == 0:
+    if last_game_state['round']%10 == 0 and last_game_state['round'] > 49:
         dt = datetime.datetime.now()
         st = dt.strftime('%Y-%m-%d %H:%M:%S')
-        with open(f"models/model_{st}.pt", "wb") as file:
-            pickle.dump(self.QEstimator, file)
+        # with open(f"models/model_{st}.pt", "wb") as file:
+        #     pickle.dump(self.QEstimator, file)
+        with open(f"models/model.pt", "wb") as file:
+            pickle.dump(self.QEstimator.regressor, file)
