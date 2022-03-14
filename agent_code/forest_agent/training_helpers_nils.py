@@ -76,6 +76,7 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
     new_features = state_to_features(new_game_state)
     
     new_events = []
+    return []
 
     if e.INVALID_ACTION not in events:
         new_events.append(VALID_ACTION)

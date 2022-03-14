@@ -13,8 +13,8 @@ from .base_helpers import ACTIONS, \
     cityblock_dist
 from .action_filter import action_is_stupid
 
-from .state_transform_leif import state_to_features, train_act
-#from .state_transform_nils import state_to_features, train_act
+#from .state_transform_leif import state_to_features, train_act
+from .state_transform_nils import state_to_features, train_act
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
@@ -35,12 +35,14 @@ def setup(self):
     self.initial_learning_rate = 0.15
     self.learning_rate = self.initial_learning_rate
     
-    self.initial_epsilon = 0.4
+    self.initial_epsilon = 0.35
     self.epsilon = self.initial_epsilon
     
     if False and os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
-            self.QEstimator = pickle.load(file)
+            self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
+                                         discount_factor = 0.95)
+            self.QEstimator.regressor = pickle.load(file)
             print("LOADED MODEL")
     else:
         self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,

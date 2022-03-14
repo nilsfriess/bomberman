@@ -1,6 +1,8 @@
 import numpy as np
 import pyastar2d
 
+from scipy.spatial.distance import cdist
+
 from settings import ROWS, COLS
 
 ''' ACTIONS '''
@@ -16,12 +18,16 @@ def one_hot_action(action: str) -> np.array:
 def cityblock_dist(x,y):
     return abs(x[0]-y[0]) + abs(x[1]-y[1])
 
-coordinates = [[(i,j) for j in range(COLS)] for i in range(ROWS)]
+coords = [[i,j] for i in range(ROWS) for j in range(COLS)]
 def find_path(field, start, goal):
     # compute manhattan distance from `start` to all the squares in the field
-    weights = np.array([[cityblock_dist(start, coord)
-                         for coord in row]
-                        for row in coordinates], dtype=np.float32)
+    # weights = np.array([[cityblock_dist(start, coord)
+    #                      for coord in row]
+    #                     for row in coordinates], dtype=np.float32)
+
+    start = np.array(start)
+    weights = cdist(coords, [start], 'cityblock').reshape(ROWS, COLS).astype(np.float32)
+    
     weights = weights + 1 # weights must >= 1
     weights[field != 0] = np.inf # walls have infinite weight
     
@@ -104,3 +110,91 @@ def action_from_direction(direction):
         return 'RIGHT'
 
     return 'WAIT'
+
+'''
+Returns a new game_state that represents the state
+after a 90 degree anticlockwise rotation.
+'''
+
+def rotate_game_state(game_state: dict, n):
+    #n = -n
+    rot_game_state = game_state.copy()
+    
+    # rotate the field
+    field = game_state['field']
+    rot_game_state['field'] = np.rot90(field, n)
+    
+    # rotate bombs
+    bombs = game_state['bombs']
+    if len(bombs) > 0:
+        bomb_matrix = np.zeros_like(field)
+        for position, timer in bombs:
+            bomb_matrix[position] = timer
+
+        new_bomb_matrix = np.rot90(bomb_matrix, n)
+        indices =  (new_bomb_matrix != 0).nonzero()
+        values = new_bomb_dist[indices]
+
+        new_bombs = []
+        for i,[x,y] in enumerate(np.transpose(indices)):
+            new_bombs.append(((x,y), values[i]))
+
+        rot_game_state['bombs'] = new_bombs
+
+    # rotate explosion map
+    explosion_map = game_state['explosion_map']
+    rot_game_state['explosion_map'] = np.rot90(explosion_map, n)
+
+    # rotate coins
+    coins = game_state['coins']
+    if len(coins) > 0:
+        coin_matrix = np.zeros_like(field)
+        for coin in coins:
+            coin_matrix[coin] = 1
+        new_coin_matrix = np.rot90(coin_matrix, n)
+
+        new_coins = []
+        for [x,y] in np.transpose((new_coin_matrix != 0).nonzero()):
+            new_coins.append((x,y))
+
+        rot_game_state['coins'] = new_coins
+
+    # rotate self and enemies
+    def rotate_player(player):
+        (name, score, bomb, pos) = player
+
+        player_matrix = np.zeros_like(field)
+        player_matrix[pos] = 1
+        new_player_matrix = np.rot90(player_matrix, n)
+        new_pos = tuple(np.array(new_player_matrix.nonzero()).ravel())
+
+        return (name, score, bomb, new_pos)
+
+    agent = game_state['self']
+    rot_game_state['self'] =  rotate_player(agent)
+
+    enemies = game_state['others']
+    if len(enemies) > 0:
+        new_enemies = []
+        for enemy in enemies:
+            new_enemies.append(rotate_player(enemy))
+        rot_game_state['others'] = new_enemies
+    
+    return rot_game_state
+
+def rotate_action(action, n):
+    if n == 0:
+        return action
+
+    if (action == 'WAIT') or (action == 'BOMB'):
+        rot_action = action
+    elif action == 'UP':
+        rot_action = 'LEFT'
+    elif action == 'DOWN':
+        rot_action = 'RIGHT'
+    elif action == 'LEFT':
+        rot_action = 'DOWN'
+    elif action == 'RIGHT':
+        rot_action = 'UP'
+
+    return rotate_action(rot_action, n-1)

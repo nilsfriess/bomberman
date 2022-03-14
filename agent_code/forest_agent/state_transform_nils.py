@@ -3,7 +3,9 @@ import numpy as np
 from .base_helpers import find_next_step_to_assets,\
     direction_from_coordinates,\
     cityblock_dist,\
-    ACTIONS
+    ACTIONS,\
+    rotate_game_state,\
+    rotate_action
 
 from .action_filter import action_is_stupid
 
@@ -32,8 +34,9 @@ def state_to_features(game_state: dict) -> np.array:
                                                  coord_to_closest_crate)
 
     ''' OWN POSITION '''
-    own_position = np.zeros((field.shape[0], field.shape[1]))
-    own_position[self_pos] = 1
+    # own_position = np.zeros((field.shape[0], field.shape[1]))
+    # own_position[self_pos] = 1
+    own_position = np.array(self_pos)
     
     ''' DIRECTION TO CLOSEST COIN '''
     # Find 10 closest coins, where `close` is w.r.t. the cityblock distance
@@ -134,19 +137,19 @@ def state_to_features(game_state: dict) -> np.array:
         min_bomb_dist = min(bombs_dist)
     
     features = np.concatenate([
-        crate_direction.ravel(),
+        #crate_direction.ravel(),
         own_position.ravel(),
         coin_direction.ravel(),
-        closest_enemy_direction.ravel(),
+        #closest_enemy_direction.ravel(),
         # explosions_around.ravel(),
         # risks.ravel(),
-        crates_window.ravel(),
-        explosion_window.ravel(),#
-        bombs_window.ravel(),
-        closest_bomb_direction.ravel(),
+        #crates_window.ravel(),
+        #explosion_window.ravel(),#
+        #bombs_window.ravel(),
+        #closest_bomb_direction.ravel(),
         #coord_to_closest_bomb.ravel()
-        risk.ravel(),
-        [min_bomb_dist]
+        #risk.ravel(),
+        #[min_bomb_dist]
     ])
 
     #print(len(features))
@@ -179,18 +182,37 @@ def train_act(self, game_state:dict) -> str:
             stupid_actions = []
             
     if np.random.uniform() < 1-self.epsilon:
+        ''' 
+        Check which quadrant we are in.
+        '''
+        (_,_,_,(x,y)) = game_state['self']
+        if (x <= 8) and (y <= 8):
+            # upper left
+            quad = 0
+        elif (x > 8) and (y <= 8):
+            # upper right
+            quad = 1
+        elif (x > 8) and (y > 8):
+            # lower right
+            quad = 2
+        elif (x <= 8) and (y > 8): 
+            quad = 3
+
+        #game_state = rotate_game_state(game_state, quad)
+        
         state = state_to_features(game_state)
         av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
 
         action = ACTIONS[np.argmax(av)]
+        #action = rotate_action(action, quad)
 
-        while action in stupid_actions:
-            action = random_action()
+        # while action in stupid_actions:
+        #     action = random_action()
             
     else:
-        action = random_action()
-        while action in stupid_actions:
-            action = random_action()
+        action = random_action(False)
+        # while action in stupid_actions:
+        #     action = random_action()
 
     # print(f"Chose: {action}")
     return action
