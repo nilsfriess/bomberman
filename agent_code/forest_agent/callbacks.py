@@ -35,7 +35,8 @@ def setup(self):
     self.initial_epsilon = 0.4
     self.epsilon = self.initial_epsilon
     
-    self.filter_actions = False
+    self.filter_actions = True
+    self.filter_prob = 0.9
     
     if os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
@@ -45,9 +46,12 @@ def setup(self):
         self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
                                      discount_factor = 0.95)
         
-def random_action(allow_bombs = False):
+def random_action(allow_bombs = True):
     if allow_bombs:
-        return np.random.choice(ACTIONS)
+        #print(ACTIONS)
+        #return np.random.choice(ACTIONS)
+        ind = np.random.randint(len(ACTIONS))
+        return ACTIONS[ind]
     else:
         return np.random.choice(ACTIONS[:-1])
                 
@@ -64,7 +68,7 @@ def act(self, game_state: dict) -> str:
     # Compute stupid actions
     stupid_actions = []
 
-    if self.filter_actions:
+    if self.filter_actions and (np.random.uniform() < self.filter_prob):
         for action in ACTIONS:
             if action_is_stupid(game_state, action):
                 stupid_actions.append(action)
@@ -72,7 +76,10 @@ def act(self, game_state: dict) -> str:
         if ('BOMB' not in stupid_actions) and (len(stupid_actions) == 5):
             # Too late, every direction is stupid
             stupid_actions = []
-        
+
+        if (len(stupid_actions) == 6):
+            stupid_actions = []
+            
     if np.random.uniform() < 1-self.epsilon:
         state = state_to_features(game_state)
         av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
