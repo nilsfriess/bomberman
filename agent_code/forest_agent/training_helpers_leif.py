@@ -22,6 +22,7 @@ def reward_from_events(events: List[str]) -> int:
         #MOVED_AWAY_FROM_COIN: -1,
         #MOVED_TOWARDS_COIN: 1,
         VALID_ACTION: -1,
+        #evKILLED_SELF: -1000,
         DODGED_BOMB: 1000
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
@@ -33,9 +34,9 @@ def reward_from_events(events: List[str]) -> int:
     # self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
 
-def compute_custom_events(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):    
+def compute_custom_events(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     new_events = []
-    
+
     if e.COIN_COLLECTED not in events:
         new_events.append(NO_COIN_COLLECTED)
 

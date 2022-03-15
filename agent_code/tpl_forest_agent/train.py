@@ -90,10 +90,4 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print_progress(self, last_game_state, last_action, events)
 
     # Store the model
-    if last_game_state['round']%10 == 0 and last_game_state['round'] > 49:
-        dt = datetime.datetime.now()
-        st = dt.strftime('%Y-%m-%d %H:%M:%S')
-        # with open(f"models/model_{st}.pt", "wb") as file:
-        #     pickle.dump(self.QEstimator, file)
-        with open(f"models/model.pt", "wb") as file:
-            pickle.dump(self.QEstimator, file)
+    store_model(last_game_state, self.QEstimator.regressor)
