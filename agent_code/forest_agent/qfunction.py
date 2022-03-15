@@ -18,7 +18,7 @@ class QEstimator:
         self.not_fitted = True
 
         # Number of steps for n-step temporal difference
-        self.steps = 5
+        self.steps = 2
 
     def update_learning_rate(self, new_rate):
         self.regressor.learning_rate = new_rate
@@ -45,7 +45,7 @@ class QEstimator:
         self.regressor.fit(X, y.ravel())
         self.regressor.n_estimators += 1
 
-        self.regressor.max_depth = 1
+        #self.regressor.max_depth = 1
         self.not_fitted = False
 
 

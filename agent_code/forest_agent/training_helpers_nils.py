@@ -76,10 +76,9 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
     new_features = state_to_features(new_game_state)
     
     new_events = []
-    return []
 
-    if e.INVALID_ACTION not in events:
-        new_events.append(VALID_ACTION)
+    if self_action == 'WAIT':
+        new_events.append(e.INVALID_ACTION)
 
     if e.INVALID_ACTION in events:
         self.invalid += 1
@@ -102,81 +101,6 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
         new_events.append(AVOIDED_BOMB)
         self.avoided_bomb += 1
         
-    old_bomb_dist = old_features[-1]
-    new_bomb_dist = new_features[-1]
-
-    if old_bomb_dist != -1:
-        if new_bomb_dist > old_bomb_dist:
-            new_events.append(MOVED_AWAY_FROM_BOMB)
-            self.moved_away += 1
-        else:
-            new_events.append(MOVED_NOT_AWAY_FROM_BOMB)
-
-    bombs = [pos for (pos, _) in old_game_state['bombs']]
-    if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
-        print("Waited on bomb")
-        new_events.append(WAITED_ON_BOMB)
-
-        # RISK
-    action_risks = old_features[-5:-1]
-    action_risk_strings = []
-    if action_risks[0] == 1:
-        action_risk_strings.append('UP')
-    if action_risks[1] == 1:
-        action_risk_strings.append('DOWN')
-    if action_risks[2] == 1:
-        action_risk_strings.append('LEFT')
-    if action_risks[3] == 1:
-        action_risk_strings.append('RIGHT')
-
-    if len(action_risk_strings) > 0:
-        if self_action not in action_risk_strings:
-            new_events.append(USEFUL_DIRECTION)
-        else:
-            new_events.append(NOT_USEFUL_DIRECTION)
-
-    if self_action == 'BOMB':
-        (x,y) = old_game_state['self'][3]
-        field = np.array(old_game_state['field'])
-        enemies = [(x,y) for (_,_,_,(x,y)) in old_game_state['others']]
-            
-        bomb_was_useless = True
-        for i in [-3,-2,-1,1,2,3]:
-            # Look for targets left and right
-            coord_on_field = (x+i, y)
-
-            if (x+i < 0)\
-               or (x+i >= field.shape[0]):
-                continue
-
-            if field[coord_on_field] == 1:
-                bomb_was_useless = False
-                break
-
-            if coord_on_field in enemies:
-                bomb_was_useless = False
-                break
-
-            # Look for targets above and below
-            coord_on_field = (x, y+i)
-            
-            if (y+i < 0)\
-               or (y+i >= field.shape[1]):
-                continue
-
-            if field[coord_on_field] == 1:
-                bomb_was_useless = False
-                break
-
-            if coord_on_field in enemies:
-                bomb_was_useless = False
-                break
-                
-        if bomb_was_useless:
-            new_events.append(USELESS_BOMB)
-        else:
-            new_events.append(USEFUL_BOMB)
-
     return new_events
 
 def print_progress(self, last_game_state, last_action, events):

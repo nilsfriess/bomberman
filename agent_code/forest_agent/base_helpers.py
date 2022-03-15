@@ -133,7 +133,7 @@ def rotate_game_state(game_state: dict, n):
 
         new_bomb_matrix = np.rot90(bomb_matrix, n)
         indices =  (new_bomb_matrix != 0).nonzero()
-        values = new_bomb_dist[indices]
+        values = new_bomb_matrix[indices]
 
         new_bombs = []
         for i,[x,y] in enumerate(np.transpose(indices)):
