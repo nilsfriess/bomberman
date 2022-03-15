@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial.distance import cdist
 
 from .base_helpers import find_next_step_to_assets,\
     direction_from_coordinates,\
@@ -15,29 +16,34 @@ def state_to_features(game_state: dict) -> np.array:
 
     # Assemble features
     ''' OWN POSITION '''
-    # own_position = np.zeros((field.shape[0], field.shape[1]))
-    # own_position[self_pos] = 1
     (_,_,_,self_pos) = game_state['self']
-    own_position = np.array(self_pos)
+    field = np.array(game_state['field'])
+    own_position = np.zeros((field.shape[0], field.shape[1]))
+    own_position[self_pos] = 1
+    #own_position = np.array(self_pos)
     
     ''' DIRECTION TO CLOSEST COIN '''
-    # Find 10 closest coins, where `close` is w.r.t. the cityblock distance
+    # Find 5 closest coins, where `close` is w.r.t. the cityblock distance
     game_coins = np.array(game_state['coins'])
-    field = np.array(game_state['field'])
-    n_closest_coins = min(len(game_coins), 2)
-    coins = game_coins[np.argpartition(np.array([cityblock_dist(self_pos, coin)
-                                                 for coin in game_coins]),
-                                       n_closest_coins-1)]
-    closest_coins = coins[:n_closest_coins]
+    if len(game_coins) > 0:
+        dist_to_coins = cdist(game_coins, [self_pos], 'cityblock')
 
-    enemies = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
-    coord_to_closest_coin = find_next_step_to_assets(field,
-                                                     enemies,
-                                                     self_pos,
-                                                     closest_coins)
+        n_closest_coins = min(len(game_coins), 5)
+        field = np.array(game_state['field'])
+        coins = game_coins[np.argpartition(dist_to_coins.ravel(),
+                                           n_closest_coins-1)]
+        closest_coins = coins[:n_closest_coins]
 
-    coin_direction = direction_from_coordinates(self_pos,
-                                                coord_to_closest_coin)
+        enemies = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
+        coord_to_closest_coin = find_next_step_to_assets(field,
+                                                         enemies,
+                                                         self_pos,
+                                                         closest_coins)
+
+        coin_direction = direction_from_coordinates(self_pos,
+                                                    coord_to_closest_coin)
+    else:
+        coin_direction = np.array(self_pos)
 
     # ''' ENEMY DIRECTIONS '''    
     # coord_to_closest_enemy = find_next_step_to_assets(field,
@@ -177,20 +183,22 @@ def train_act(self, game_state:dict) -> str:
             quad = 0
         elif (x > 8) and (y <= 8):
             # upper right
-            quad = 1
+            quad = 3
         elif (x > 8) and (y > 8):
             # lower right
             quad = 2
         elif (x <= 8) and (y > 8): 
-            quad = 3
+            quad = 1
 
-        #game_state = rotate_game_state(game_state, quad)
+        game_state = rotate_game_state(game_state, quad)
+
+#        print(f"Position after rotation {game_state['self'][3]}")
         
         state = state_to_features(game_state)
         av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
 
         action = ACTIONS[np.argmax(av)]
-        #action = rotate_action(action, quad)
+        action = rotate_action(action, quad)
 
         # while action in stupid_actions:
         #     action = random_action()
