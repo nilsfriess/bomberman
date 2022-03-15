@@ -23,7 +23,7 @@ class QEstimator:
         self.not_fitted = True
 
         # Number of steps for n-step temporal difference
-        self.steps = 2
+        self.steps = 5
 
     # return the regressed value of Q(state, action) using the current regression model
     # state is a feature array

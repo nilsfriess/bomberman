@@ -154,14 +154,15 @@ def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
         #e.COIN_COLLECTED: 10,
         #e.CRATE_DESTROYED: 30,
-        #e.BOMB_DROPPED: 50,
+        e.BOMB_DROPPED: 20,
         # NO_COIN_COLLECTED: -2,
-        e.WAITED: -5,
-        e.INVALID_ACTION: -10,
+        e.WAITED: -1,
+        #e.INVALID_ACTION: -10,
         #MOVED_AWAY_FROM_COIN: -1,
         #MOVED_TOWARDS_COIN: 1,
-        VALID_ACTION: -1,
-        DODGED_BOMB: 1000
+        VALID_ACTION: 1,
+        DODGED_BOMB: 100,
+        e.KILLED_SELF: -50
         # e.KILLED_OPPONENT: 5,
         # PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
     }

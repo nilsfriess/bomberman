@@ -88,9 +88,13 @@ def direction_to_best_coin(field, x, y, coins, n_coins_considered):
 
     return coin_positions
 
-# one hot encodes, which fields reachable in less than n_steps are blocked. If n_steps == 1, the order is DOWN UP LEFT RIGHT
+# one hot encodes, which tiles reachable in less than n_steps are blocked. If n_steps == 1, the order is UP DOWN LEFT RIGHT
 # 1 means blocked.
-def blocked_neighbourhood(field, others, bombs, x, y, n_steps):
+def blocked_neighbourhood(game_state, x, y, n_steps=1) -> np.array:
+    field = game_state["field"]
+    others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
+    bombs = [(x,y) for ((x,y),_) in game_state['bombs']]
+
     neighbourhood = get_step_neighbourhood(x, y, n_steps)
     blocked = np.zeros(len(neighbourhood))
 
@@ -119,16 +123,114 @@ def blocked_neighbourhood(field, others, bombs, x, y, n_steps):
 
     return blocked
 
-# nonzero-hot encode wheter a field is in bomb-danger and assign it a risk score depending on timer of the bomb and distance
-# If n_steps == 1, the order is DOWN UP LEFT RIGHT CURRENT_POSITION
-def bomb_risk_neighbourhood(field, bombs_and_timers, x, y, n_steps):
+# one-hot encode whether a neighbouring field is affected by a bomb in t_to_explosion steps, including the current positions. If t == None, all times are considered. t_to_explosion steps can also be a tuple of min and max times
+# If n_steps == 1, the order is UP DOWN LEFT RIGHT CURRENT_POSITION
+def bomb_danger_in_t(game_state, x, y, n_steps=1, t_to_explosion=None) -> np.array:
+
+    neighbourhood = get_step_neighbourhood(x, y, n_steps)
+    neighbourhood.append((len(neighbourhood),(x,y)))
+    bomb_danger = np.zeros(len(neighbourhood))
+    bombs_and_timers = game_state["bombs"]
+    field = game_state["field"]
+
+    # set the danger to one outside of the field
+    for index, (x_test, y_test) in neighbourhood:
+        if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
+            bomb_danger[index] = 1
+
+    for ((x_b,y_b),t) in bombs_and_timers:
+
+        good_timer = False
+
+        if t_to_explosion is None:
+            good_timer = True
+        elif type(t_to_explosion) is tuple:
+            if (t >= t_to_explosion[1] and t <= t_to_explosion[0]):
+                good_timer = True
+        elif t == t_to_explosion:
+            good_timer = True
+
+        if not good_timer:
+            continue
+
+        for index, (x_test, y_test) in neighbourhood:
+            # if danger is already present, skip
+            if bomb_danger[index] == 1:
+                continue
+
+            dx = x_test - x_b
+            dy = y_test - y_b
+
+            if dx == 0 and abs(dy) < 4:
+                wall_in_between = False
+                # all possible y coord in between:
+                for coo in range(min(y_test,y_b) + 1, max(y_test,y_b)):
+                    if field[x_test,coo] == -1:
+                        wall_in_between = True
+                        break
+                if not wall_in_between:
+                    bomb_danger[index] = 1
+
+            elif dy == 0 and abs(dx) < 4:
+                wall_in_between = False
+                # all possible x coord in between:
+                for coo in range(min(x_test,x_b) + 1, max(x_test,x_b)):
+                    if field[coo,y_test] == -1:
+                        wall_in_between = True
+                        break
+                if not wall_in_between:
+                    bomb_danger[index] = 1
+
+    return bomb_danger
+
+# one-hot encode whether a bomb with timer = t is located at a field in the neighbourhood. If t == None, all bombs are considered. t can also be a tuple (t_min,t_max)
+# If n_steps == 1, the order is UP DOWN LEFT RIGHT CURRENT_POSITION
+def neighbouring_bomb_locations_t(game_state, x, y, n_steps=1, t=None) -> np.array:
+
+    neighbourhood = get_step_neighbourhood(x, y, n_steps)
+    neighbourhood.append((len(neighbourhood),(x,y)))
+    bombs = np.zeros(len(neighbourhood))
+    bombs_and_timers = game_state["bombs"]
+    field = game_state["field"]
+    
+    for ((x_b,y_b),timer) in bombs_and_timers:
+
+        good_timer = False
+
+        if t is None:
+            good_timer = True
+        elif type(t) is tuple:
+            if (timer >= t[1] and timer <= t[0]):
+                good_timer = True
+        elif t == timer:
+            good_timer = True
+
+        if not good_timer:
+            continue
+
+        for index, (x_test, y_test) in neighbourhood:
+            # outside of the field, there are no bombs
+            if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
+                bombs[index] = 0
+
+            elif x_test == x_b and y_test == y_b:
+                bombs[index] = 1
+
+    return bombs
+
+# nonzero-hot encode a risk score for neighbouring tiles including the current position
+# If n_steps == 1, the order is UP DOWN LEFT RIGHT CURRENT_POSITION
+def bomb_risk_neighbourhood(game_state, x, y, t=None, n_steps=1) -> np.array:
+    field = game_state["field"]
+    bombs_and_timers = game_state["bombs"]
+
     neighbourhood = get_step_neighbourhood(x, y, n_steps)
     neighbourhood.append((len(neighbourhood),(x,y)))
     bomb_risk = np.zeros(len(neighbourhood))
 
     max_risk = 4 # max dist = 3, max timer = 3, risk = 7 - dist - timer
     def risk(dist, timer):
-        return max_risk - dist
+        return max_risk - dist - timer
 
     for index, (x_test, y_test) in neighbourhood:
         # outside of the field, the bomb risk is maximal
@@ -163,8 +265,16 @@ def bomb_risk_neighbourhood(field, bombs_and_timers, x, y, n_steps):
 
     return bomb_risk
 
-# one hot encodes, which fields reachable in less than n_steps are blocked. If n_steps == 1, the order is DOWN UP LEFT RIGHT
-def explosion_neighbourhood(x, y, explosion_positions, n_steps):
+# one may implement a faster version here later, taking everything in one loop instead of each function calling its own.
+# also indicate whether the agent is currently standing on a bomb
+def bomb_feature_set(game_state, x, y) -> np.array:
+    bomb_features = np.zeros(1)
+
+    return bomb_features
+
+def explosion_neighbourhood(game_state, x, y, n_steps=1) -> np.array:
+
+    explosion_positions = game_state["explosion_map"]
     neighbourhood = get_step_neighbourhood(x, y, n_steps)
     explosion = np.zeros(len(neighbourhood))
 
@@ -172,14 +282,37 @@ def explosion_neighbourhood(x, y, explosion_positions, n_steps):
 
         if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
             # when the neighbourhood is not in the field, count this as explosion.
-            explosion[index] = 2
+            explosion[index] = 1
 
-        else:
-            explosion[index] = explosion_positions[x_test, y_test]
+        elif explosion_positions[x_test, y_test] == 2:
+            # if an explosion is valid for one step only, agent may step onto it without effect.
+            explosion[index] = 1
 
     return explosion
 
-# one hot encodes, which fields reachable in less than n_steps are blocked. If n_steps == 1, the order is DOWN UP LEFT RIGHT
+# one hot encodes, which tiles reachable in less than n_steps are blocked. If n_steps == 1, the order is UP DOWN LEFT RIGHT
 def crates_in_neighbourhood():
 
     return 0
+
+def valid_actions(game_state) -> np.array:
+
+    ordered_actions = np.array(["UP", "DOWN", "LEFT", "RIGHT"])
+    x, y = game_state["self"][3][0], game_state["self"][3][1]
+
+    blocked = blocked_neighbourhood(game_state, x, y, 1)
+    if game_state["self"][2]:
+        return np.append(ordered_actions[np.where(blocked == 0)], np.array(("WAIT")))
+    else:
+        return np.append(ordered_actions[np.where(blocked == 0)], np.array(("WAIT", "BOMB")))
+
+def death_implying_actions(game_state) -> np.array:
+
+    ordered_actions = np.array(["UP", "DOWN", "LEFT", "RIGHT", "WAIT"])
+    x, y = game_state["self"][3][0], game_state["self"][3][1]
+
+    #
+    explosions = np.append(explosion_neighbourhood(game_state, x, y, 1), np.array([0]))
+    bombs_with_zero_timer = neighbouring_bomb_locations_t(game_state, 0, 1)
+    sum = explosions + bombs_with_zero_timer
+    return ordered_actions[np.where(sum == 0)]
