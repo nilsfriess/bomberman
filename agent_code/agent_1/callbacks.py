@@ -37,11 +37,12 @@ def setup(self):
     self.initial_learning_rate = 0.15
     self.learning_rate = self.initial_learning_rate
 
-    self.initial_epsilon = 0.4
+    self.initial_epsilon = 0.2
     self.epsilon = self.initial_epsilon
 
     self.QEstimator = QEstimator(learning_rate = 0.1,
                                  discount_factor = 0.8)
+    #self.QEstimator.steps = 2
 
     # check whether the stored model params can be used with state_to_features. If so, loads the .regressor member of the QEstimator class, otherwise overwrites the parameters.
     # This has the advantage that parameters of the QEstimator class can be changed during training and that the model.pt file has not to be deleted when the features are changed.
