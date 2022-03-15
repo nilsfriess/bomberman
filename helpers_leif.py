@@ -2,18 +2,82 @@ import numpy as np
 
 from settings import ROWS, COLS
 
-from .base_helpers import *
+from base_helpers import *
+
+import os
+import pickle
+
+
 
 def store_model(last_game_state, data, name = "model"):
-    if last_game_state['round']%10 == 0 and last_game_state['round'] > 49:
+    if last_game_state['round']%1 == 0 and last_game_state['round'] > 1:
         # dt = datetime.datetime.now()
         # st = dt.strftime('%Y-%m-%d %H:%M:%S')
         # with open(f"models/model_{st}.pt", "wb") as file:
         #     pickle.dump(self.QEstimator, file)
         with open(f"models/" + name + ".pt", "wb") as file:
             pickle.dump(data, file)
+        # save some state to automatically check if model has to be overwritten or can be kept
+        if not os.path.isfile("models/some_state.pt"):
+            with open(f"models/some_state.pt", "wb") as file2:
+                pickle.dump(last_game_state, file2)
 
-def load_model():
+# check whether the stored model params can be used with state_to_features. If so, loads the .regressor member of the QEstimator class, otherwise overwrites the parameters.
+def load_model(self, state_to_features):
+    if os.path.isfile("models/model.pt"):
+        with open("models/model.pt", "rb") as file:
+            try:
+                stored_regressor = pickle.load(file)
+                with open("models/some_state.pt", "rb") as file2:
+                    some_state = pickle.load(file2)
+                self.QEstimator.regressor = stored_regressor
+
+                # test two member functions:
+                temp = self.QEstimator.estimate(state_to_features(some_state), "UP")
+                self.QEstimator.update([(state_to_features(some_state), "UP", state_to_features(some_state), 0),
+                                        (state_to_features(some_state), "UP", state_to_features(some_state), 0)])
+
+                # reset after testing update:
+                self.QEstimator.regressor = stored_regressor
+                print("Using stored regression parameters")
+
+            except ValueError:
+                print("Stored regression parameters have another shape, beginning to train new parameters, will overwrite old model after 50 steps.")
+                self.QEstimator = QEstimator(learning_rate = 0.1,
+                                             discount_factor = 0.8)
+
+
+''' GRID '''
+# returns a list of indices and tuples, describing the fields in the square-neighbourhood of x and y, in a distance measure where a disc of radius 1 is a square of 3x3 fields
+def get_neighbourhood(x, y, radius):
+    return 0
+
+# returns a list of indices and tuples, describing the fields that can be reached within n_steps or less, excluding the own position (x,y)
+# if n_steps == 1, the order is DOWN UP LEFT RIGHT
+def get_step_neighbourhood(x, y, n_steps):
+    neighb = []
+    counter = 0
+    for i in range(n_steps+1):
+        for j in range(n_steps - i+1):
+            if i == 0 and j == 0:
+                continue
+            # if one is zero, do not count +-zero twice:
+            elif i == 0:
+                for sign_j in [-1,1]:
+                    neighb.append((counter, (x, y+sign_j*j)))
+                    counter += 1
+            elif j == 0:
+                for sign_i in [-1,1]:
+                    neighb.append((counter, (x+sign_i*i, y)))
+                    counter += 1
+            # case none is zero:
+            else:
+                for sign_i in [-1,1]:
+                    for sign_j in [-1,1]:
+                        neighb.append((counter, (x+sign_i*i, y+sign_j*j)))
+                        counter += 1
+    return neighb
+
 
 
 def find_next_step_to_closest_coin(field, self_pos, coins):

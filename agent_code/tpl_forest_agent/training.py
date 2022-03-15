@@ -2,7 +2,8 @@ from typing import List
 
 import events as e
 
-from .state_transform_nils import state_to_features
+from .state_transform import state_to_features
+from helpers_leif import store_model
 
 import numpy as np
 
@@ -44,7 +45,7 @@ def reward_from_events(events: List[str]) -> int:
     #    (USEFUL_DIRECTION in events) or\
     #    (NOT_USEFUL_DIRECTION in events):
     #     print("Custom event")
-    
+
     game_rewards = {
         e.KILLED_OPPONENT: 500,
         e.COIN_COLLECTED: 100,
@@ -74,7 +75,7 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
 
     old_features = state_to_features(old_game_state)
     new_features = state_to_features(new_game_state)
-    
+
     new_events = []
 
     if e.INVALID_ACTION not in events:
@@ -90,17 +91,17 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
     if (self_action == 'BOMB'):
         if new_game_state['self'][3] in corners:
             new_events.append(BOMB_IN_CORNER)
-        
+
     old_self_pos = old_game_state['self'][3]
     new_self_pos = new_game_state['self'][3]
     explosion_map = new_game_state['explosion_map']
-    
+
     if (explosion_map[old_self_pos] > 0) and\
        (explosion_map[new_self_pos] == 0) and\
        (old_self_pos != new_self_pos):
         new_events.append(AVOIDED_BOMB)
         self.avoided_bomb += 1
-        
+
     old_bomb_dist = old_features[-1]
     new_bomb_dist = new_features[-1]
 
@@ -138,7 +139,7 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
         (x,y) = old_game_state['self'][3]
         field = np.array(old_game_state['field'])
         enemies = [(x,y) for (_,_,_,(x,y)) in old_game_state['others']]
-            
+
         bomb_was_useless = True
         for i in [-3,-2,-1,1,2,3]:
             # Look for targets left and right
@@ -158,7 +159,7 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
 
             # Look for targets above and below
             coord_on_field = (x, y+i)
-            
+
             if (y+i < 0)\
                or (y+i >= field.shape[1]):
                 continue
@@ -170,7 +171,7 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
             if coord_on_field in enemies:
                 bomb_was_useless = False
                 break
-                
+
         if bomb_was_useless:
             new_events.append(USELESS_BOMB)
         else:
@@ -181,10 +182,10 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
 def print_progress(self, last_game_state, last_action, events):
     if e.KILLED_SELF in events:
         self.killed_self += 1
-        
+
     # After the gradient boost update, discard the transitions
     self.transitions = []
- 
+
     print(f"Coins collected: {last_game_state['self'][1]}")
     print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
     self.invalid = 0

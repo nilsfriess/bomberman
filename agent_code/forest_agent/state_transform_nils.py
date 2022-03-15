@@ -1,14 +1,14 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 
-from .base_helpers import find_next_step_to_assets,\
+from base_helpers import find_next_step_to_assets,\
     direction_from_coordinates,\
     cityblock_dist,\
     ACTIONS,\
     rotate_game_state,\
     rotate_action
 
-from .action_filter import action_is_stupid
+from action_filter import action_is_stupid
 
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
@@ -21,7 +21,7 @@ def state_to_features(game_state: dict) -> np.array:
     own_position = np.zeros((field.shape[0], field.shape[1]))
     own_position[self_pos] = 1
     #own_position = np.array(self_pos)
-    
+
     ''' DIRECTION TO CLOSEST COIN '''
     # Find 5 closest coins, where `close` is w.r.t. the cityblock distance
     game_coins = np.array(game_state['coins'])
@@ -45,7 +45,7 @@ def state_to_features(game_state: dict) -> np.array:
     else:
         coin_direction = np.array(self_pos)
 
-    # ''' ENEMY DIRECTIONS '''    
+    # ''' ENEMY DIRECTIONS '''
     # coord_to_closest_enemy = find_next_step_to_assets(field,
     #                                                   [],
     #                                                   self_pos,
@@ -69,14 +69,14 @@ def state_to_features(game_state: dict) -> np.array:
     # for i,action in enumerate(['UP', 'DOWN', 'LEFT', 'RIGHT']):
     #         if action_is_stupid(game_state, action):
     #             risk[i] = 1
-    
-    ''' 7x7 window around agent of blocked (wall/crate), free tiles and explosions '''    
+
+    ''' 7x7 window around agent of blocked (wall/crate), free tiles and explosions '''
     crates_window = np.zeros((7,7))
     x,y = self_pos
     for i in [-3,-2,-1,0,1,2,3]:
         for j in [-3,-2,-1,0,1,2,3]:
             coord_on_field = (x+i, y+j)
-            
+
             if (x+i < 0)\
                or (x+i >= field.shape[0])\
                or (y+j < 0)\
@@ -92,7 +92,7 @@ def state_to_features(game_state: dict) -> np.array:
     for i in [-3,-2,-1,0,1,2,3]:
         for j in [-3,-2,-1,0,1,2,3]:
             coord_on_field = (x+i, y+j)
-            
+
             if (x+i < 0)\
                or (x+i >= field.shape[0])\
                or (y+j < 0)\
@@ -105,12 +105,12 @@ def state_to_features(game_state: dict) -> np.array:
     bomb_pos  = [pos for (pos,_) in game_state['bombs']]
     bomb_vals = [val for (_,val) in game_state['bombs']]
     bombs_window = np.zeros((7,7))
-    
+
     if len(bomb_pos) > 0:
         for i in [-3,-2,-1,0,1,2,3]:
             for j in [-3,-2,-1,0,1,2,3]:
                 coord_on_field = (x+i, y+j)
-                
+
                 if (x+i < 0)\
                    or (x+i >= field.shape[0])\
                    or (y+j < 0)\
@@ -127,7 +127,7 @@ def state_to_features(game_state: dict) -> np.array:
     #     min_bomb_dist = -1
     # else:
     #     min_bomb_dist = min(bombs_dist)
-    
+
     features = np.concatenate([
         #crate_direction.ravel(),
         own_position.ravel(),
@@ -157,7 +157,7 @@ def random_action(allow_bombs = True):
 
 def train_act(self, game_state:dict) -> str:
     filter_prob = 0.9
-    
+
     # Compute stupid actions
     stupid_actions = []
 
@@ -172,9 +172,9 @@ def train_act(self, game_state:dict) -> str:
 
         if (len(stupid_actions) == 6):
             stupid_actions = []
-            
+
     if np.random.uniform() < 1-self.epsilon:
-        ''' 
+        '''
         Check which quadrant we are in.
         '''
         (_,_,_,(x,y)) = game_state['self']
@@ -187,22 +187,22 @@ def train_act(self, game_state:dict) -> str:
         elif (x > 8) and (y > 8):
             # lower right
             quad = 2
-        elif (x <= 8) and (y > 8): 
+        elif (x <= 8) and (y > 8):
             quad = 1
 
         game_state = rotate_game_state(game_state, quad)
 
 #        print(f"Position after rotation {game_state['self'][3]}")
-        
+
         state = state_to_features(game_state)
-        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])        
+        av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])
 
         action = ACTIONS[np.argmax(av)]
         action = rotate_action(action, quad)
 
         # while action in stupid_actions:
         #     action = random_action()
-            
+
     else:
         action = random_action(False)
         # while action in stupid_actions:

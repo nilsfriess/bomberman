@@ -2,7 +2,7 @@ import numpy as np
 
 from settings import ROWS,COLS
 
-from .helpers_leif import *
+from helpers_leif import *
 
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
