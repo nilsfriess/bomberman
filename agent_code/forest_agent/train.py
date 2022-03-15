@@ -9,7 +9,7 @@ from settings import COLS, ROWS
 import events as e
 from .callbacks import state_to_features
 
-from .base_helpers import ACTIONS, cityblock_dist, find_path, action_from_direction
+from base_helpers import ACTIONS, cityblock_dist, find_path, action_from_direction
 
 #from .training_helpers_leif import *
 from .training_helpers_nils import *

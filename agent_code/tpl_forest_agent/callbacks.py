@@ -6,14 +6,14 @@ from settings import SCENARIOS, ROWS, COLS
 
 from time import sleep
 
-from ./../forest_agent/qfunction import QEstimator
-from .base_helpers import ACTIONS, \
+from qfunction import QEstimator
+from base_helpers import ACTIONS, \
     find_next_step_to_assets,\
     direction_from_coordinates,\
     cityblock_dist
-from .action_filter import action_is_stupid
+from action_filter import action_is_stupid
 
-from .state_transform_leif import state_to_features, train_act
+from .state_transform import state_to_features, train_act
 #from .state_transform_nils import state_to_features, train_act
 
 coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']

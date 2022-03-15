@@ -6,12 +6,12 @@ from settings import SCENARIOS, ROWS, COLS
 
 from time import sleep
 
-from .qfunction import QEstimator
-from .base_helpers import ACTIONS, \
+from qfunction import QEstimator
+from base_helpers import ACTIONS, \
     find_next_step_to_assets,\
     direction_from_coordinates,\
     cityblock_dist
-from .action_filter import action_is_stupid
+from action_filter import action_is_stupid
 
 #from .state_transform_leif import state_to_features, train_act
 from .state_transform_nils import state_to_features, train_act
@@ -34,10 +34,10 @@ def setup(self):
     """
     self.initial_learning_rate = 0.15
     self.learning_rate = self.initial_learning_rate
-    
+
     self.initial_epsilon = 0.35
     self.epsilon = self.initial_epsilon
-    
+
     if False and os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
@@ -47,7 +47,7 @@ def setup(self):
     else:
         self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
                                      discount_factor = 0.95)
-                
+
 def act(self, game_state: dict) -> str:
     """
     Your agent should parse the input, think, and take a decision.
@@ -67,5 +67,3 @@ def act(self, game_state: dict) -> str:
 
     else:
         return train_act(self, game_state)
-
-

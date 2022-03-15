@@ -2,7 +2,7 @@ import numpy as np
 
 from settings import ROWS, COLS
 
-from .base_helpers import *
+from base_helpers import *
 
 def store_model(last_game_state, data, name = "model"):
     if last_game_state['round']%10 == 0 and last_game_state['round'] > 49:
