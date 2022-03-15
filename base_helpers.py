@@ -113,11 +113,13 @@ def action_from_direction(direction):
 
 '''
 Returns a new game_state that represents the state
-after a 90 degree anticlockwise rotation.
+after a n 90 degree rotations in clockwise direction.
+Note that this corresponds to *anti*clockwise rotations
+of the game field in the GUI, since both game fields
+are transposed versions of each other.
 '''
-
 def rotate_game_state(game_state: dict, n):
-    #n = -n
+    n = -n
     rot_game_state = game_state.copy()
     
     # rotate the field
