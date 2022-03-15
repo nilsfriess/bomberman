@@ -13,6 +13,8 @@ from base_helpers import ACTIONS, \
     cityblock_dist
 from action_filter import action_is_stupid
 
+from helpers_leif import load_model
+
 #from .state_transform_leif import state_to_features, train_act
 from .state_transform_nils import state_to_features, train_act
 

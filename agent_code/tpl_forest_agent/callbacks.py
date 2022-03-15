@@ -13,6 +13,8 @@ from base_helpers import ACTIONS, \
     cityblock_dist
 from action_filter import action_is_stupid
 
+from helpers_leif import load_model
+
 from .state_transform import state_to_features, train_act
 #from .state_transform_nils import state_to_features, train_act
 
@@ -38,13 +40,12 @@ def setup(self):
     self.initial_epsilon = 0.4
     self.epsilon = self.initial_epsilon
 
-    if False and os.path.isfile("models/model.pt"):
-        with open("models/model.pt", "rb") as file:
-            self.QEstimator = pickle.load(file)
-            print("LOADED MODEL")
-    else:
-        self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
-                                     discount_factor = 0.95)
+    self.QEstimator = QEstimator(learning_rate = 0.1,
+                                 discount_factor = 0.8)
+
+    # check whether the stored model params can be used with state_to_features. If so, loads the .regressor member of the QEstimator class, otherwise overwrites the parameters.
+    # This has the advantage that parameters of the QEstimator class can be changed during training and that the model.pt file has not to be deleted when the features are changed.
+    load_model(self, state_to_features)
 
 def act(self, game_state: dict) -> str:
     """
