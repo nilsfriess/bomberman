@@ -346,9 +346,9 @@ def valid_actions(game_state) -> np.array:
 
     blocked = blocked_neighbourhood(game_state, x, y, 1)
     if game_state["self"][2]:
-        return np.append(ordered_actions[np.where(blocked == 0)], np.array(("WAIT")))
-    else:
         return np.append(ordered_actions[np.where(blocked == 0)], np.array(("WAIT", "BOMB")))
+    else:
+        return np.append(ordered_actions[np.where(blocked == 0)], np.array(("WAIT")))
 
 def death_implying_actions(game_state) -> np.array:
 

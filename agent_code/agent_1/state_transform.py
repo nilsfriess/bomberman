@@ -45,7 +45,12 @@ def train_act(self, game_state: dict) -> str:
 
         blocked = blocked_neighbourhood(game_state, game_state["self"][3][0], game_state["self"][3][1], 1)
 
-        return NEW_ACTIONS[np.argmin(bomb_risk + 10*blocked)]
+        best_action = NEW_ACTIONS[np.argmin(bomb_risk + 10*blocked)]
+
+        if best_action is None:
+            return "WAIT"
+        else:
+            return best_action
 
     if np.random.uniform() < self.show_dodging:
         train_act.counter = 1
@@ -72,6 +77,7 @@ def train_act(self, game_state: dict) -> str:
 
     else:
         best_action = "WAIT"
+        print("HJBJHBGH")
 
     return best_action
 

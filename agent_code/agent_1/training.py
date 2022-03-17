@@ -53,19 +53,20 @@ def reward_from_events(events: List[str]) -> int:
         e.KILLED_OPPONENT: 500,
         e.COIN_COLLECTED: 100,
         e.CRATE_DESTROYED: 50,
-        e.INVALID_ACTION: -10,
         e.KILLED_SELF: -1000,
         VALID_ACTION: -1,
+        e.WAITED: -2,
         MOVED_AWAY_FROM_BOMB: 50,
         MOVED_NOT_AWAY_FROM_BOMB: -80,
         MOVED_TOWARDS_COIN: 1,
         MOVED_AWAY_FROM_COIN: -2,
-        BOMB_IN_CORNER: -50,
-        USELESS_BOMB: -200,
-        USEFUL_BOMB: 10,
-        WAITED_ON_BOMB: -100
+        # BOMB_IN_CORNER: -50,
+        # USELESS_BOMB: -200,
+        # USEFUL_BOMB: 10,
+        WAITED_ON_BOMB: -100,
+        DODGED_BOMB: 500,
         # DID_NOT_SURVIVE: -1000,
-        # e.SURVIVED_ROUND: 2000
+        e.SURVIVED_ROUND: 2000
     }
     reward_sum = 0
     for event in events:
@@ -199,11 +200,13 @@ def print_progress(self, last_game_state, last_action, events):
     print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
     self.bombs = 0
     self.killed_self = 0
-    print(f"Moved away from bomb {self.moved_away} times, avoided {self.avoided_bomb} times")
+    print(f"Avoided bombs {self.avoided_bomb} times")
     self.avoided_bomb = 0
     self.moved_away = 0
     print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
-    self.epsilon = self.initial_epsilon/(1 + 0.04*last_game_state['round'])
-    self.learning_rate = self.initial_learning_rate/(1 + 0.02*last_game_state['round'])
+    print(f"Survived {last_game_state['step']} rounds")
+    self.epsilon = self.initial_epsilon/(1 + 0.004*last_game_state['round'])
+    self.learning_rate = self.initial_learning_rate/(1 + 0.002*last_game_state['round'])
     self.QEstimator.update_learning_rate(self.learning_rate)
+    self.show_dodging = self.show_dodging/(1 + 0.001*last_game_state['round'])
     print()
