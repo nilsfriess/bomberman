@@ -25,7 +25,6 @@ def setup_training(self):
     """
     # experience buffer
     self.transitions = []
-    self.show_dodging = 0.1
 
     setup_custom_vars(self)
 
@@ -90,4 +89,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print_progress(self, last_game_state, last_action, events)
 
     # Store the model
-    store_model(last_game_state, self.QEstimator.regressor)
+    try:
+        store_model(last_game_state, self.QEstimator.regressor)
+    except KeyboardInterrupt:
+        store_model(last_game_state, self.QEstimator.regressor)

@@ -10,7 +10,7 @@ class QEstimator:
         self.discount_factor = discount_factor
 
         self.regressor = GradientBoostingRegressor(warm_start=True,
-                                                   max_depth=3,
+                                                   max_depth=32,
                                                    learning_rate = learning_rate,
                                                    n_estimators=1)
 

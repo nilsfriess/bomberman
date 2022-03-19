@@ -3,6 +3,7 @@ import numpy as np
 from settings import ROWS, COLS
 
 from base_helpers import *
+from qfunction import *
 
 import os
 import pickle
@@ -10,7 +11,7 @@ import pickle
 
 
 def store_model(last_game_state, data, name = "model"):
-    if last_game_state['round']%1 == 0 and last_game_state['round'] > 1:
+    if last_game_state['round']%10 == 0 and last_game_state['round'] > 49:
         # dt = datetime.datetime.now()
         # st = dt.strftime('%Y-%m-%d %H:%M:%S')
         # with open(f"models/model_{st}.pt", "wb") as file:
@@ -169,7 +170,7 @@ def blocked_neighbourhood(game_state, x, y, n_steps=1) -> np.array:
 
 # one-hot encode whether a neighbouring field is affected by a bomb in t_to_explosion steps, including the current positions. If t == None, all times are considered. t_to_explosion steps can also be a tuple of min and max times
 # If n_steps == 1, the order is UP DOWN LEFT RIGHT CURRENT_POSITION
-def bomb_danger_in_t(game_state, x, y, n_steps=1, t_to_explosion=None) -> np.array:
+def bomb_danger_in_t(game_state, x, y, n_steps=1, t_to_explosion=None, active_outside_of_field = True) -> np.array:
 
     neighbourhood = get_step_neighbourhood(x, y, n_steps)
     neighbourhood.append((len(neighbourhood),(x,y)))
@@ -178,9 +179,10 @@ def bomb_danger_in_t(game_state, x, y, n_steps=1, t_to_explosion=None) -> np.arr
     field = game_state["field"]
 
     # set the danger to one outside of the field
-    for index, (x_test, y_test) in neighbourhood:
-        if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
-            bomb_danger[index] = 1
+    if active_outside_of_field:
+        for index, (x_test, y_test) in neighbourhood:
+            if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
+                bomb_danger[index] = 1
 
     for ((x_b,y_b),t) in bombs_and_timers:
 
@@ -200,6 +202,8 @@ def bomb_danger_in_t(game_state, x, y, n_steps=1, t_to_explosion=None) -> np.arr
         for index, (x_test, y_test) in neighbourhood:
             # if danger is already present, skip
             if bomb_danger[index] == 1:
+                continue
+            if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
                 continue
 
             dx = x_test - x_b
@@ -227,7 +231,7 @@ def bomb_danger_in_t(game_state, x, y, n_steps=1, t_to_explosion=None) -> np.arr
 
     return bomb_danger
 
-# one-hot encode whether a bomb with timer = t is located at a field in the neighbourhood. If t == None, all bombs are considered. t can also be a tuple (t_min,t_max)
+# one-hot encode whether a bomb with timer = t is located at a tile in the neighbourhood including the current position. If t == None, all bombs are considered. t can also be a tuple (t_min,t_max)
 # If n_steps == 1, the order is UP DOWN LEFT RIGHT CURRENT_POSITION
 def neighbouring_bomb_locations_t(game_state, x, y, n_steps=1, t=None) -> np.array:
 
@@ -327,22 +331,45 @@ def explosion_neighbourhood(game_state, x, y, n_steps=1) -> np.array:
         if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
             # when the neighbourhood is not in the field, count this as explosion.
             explosion[index] = 1
-
-        elif explosion_positions[x_test, y_test] == 2:
-            # if an explosion is valid for one step only, agent may step onto it without effect.
-            explosion[index] = 1
+        else:
+            explosion[index] = explosion_positions[x_test,y_test]
 
     return explosion
 
 # one hot encodes, which tiles reachable in less than n_steps are blocked. If n_steps == 1, the order is UP DOWN LEFT RIGHT
-def crates_in_neighbourhood():
+# naaah, give him his position, use rotation and give a crates field and an enemy field
+def crates_in_neighbourhood(game_state, x, y, n_steps=1):
+    field = game_state["field"]
+    neighbourhood = get_step_neighbourhood(x, y, n_steps)
+    crates = np.zeros(len(neighbourhood))
 
-    return 0
+    for index, (x_test, y_test) in neighbourhood:
+
+        if not (x_test<COLS and y_test<ROWS and x_test>=0 and y_test>=0):
+            # when the neighbourhood is not in the field, count this as no crate.
+            crates[index] = 0
+        elif field[x_test,y_test] == 1:
+            crates[index] = 1
+
+    return crates
+
+def is_at_edge(game_state) -> np.array:
+    edges = np.zeros(4)
+    (x,y) = game_state["self"][3]
+    if x == 1:
+        edges[0] = 1
+    elif x == 15:
+        edges[1] = 1
+    if y == 1:
+        edges[2] = 1
+    elif y == 15:
+        edges[3] = 1
+    return edges
 
 def valid_actions(game_state) -> np.array:
 
     ordered_actions = np.array(["UP", "DOWN", "LEFT", "RIGHT"])
-    x, y = game_state["self"][3][0], game_state["self"][3][1]
+    (x,y) = game_state["self"][3]
 
     blocked = blocked_neighbourhood(game_state, x, y, 1)
     if game_state["self"][2]:
@@ -352,11 +379,86 @@ def valid_actions(game_state) -> np.array:
 
 def death_implying_actions(game_state) -> np.array:
 
-    ordered_actions = np.array(["UP", "DOWN", "LEFT", "RIGHT", "WAIT"])
-    x, y = game_state["self"][3][0], game_state["self"][3][1]
+    ordered_actions = np.array(["UP", "DOWN", "LEFT", "RIGHT", "WAIT", "BOMB"])
+    (x,y) = game_state["self"][3]
 
-    #
-    explosions = np.append(explosion_neighbourhood(game_state, x, y, 1), np.array([0]))
-    bombs_with_zero_timer = neighbouring_bomb_locations_t(game_state, 0, 1)
-    sum = explosions + bombs_with_zero_timer
-    return ordered_actions[np.where(sum == 0)]
+
+    # IMMEDIATELY DEADLY ACTIONS
+    explosions = np.append(explosion_neighbourhood(game_state, x, y, 1), np.array([0,0]))
+    bombs_with_zero_timer = np.append(bomb_danger_in_t(game_state, x, y, 1, 0, False), np.array([0]))
+    indicator = explosions + bombs_with_zero_timer
+    imm_death_actions = ordered_actions[np.where(indicator != 0)]
+
+
+    # ACTIONS THAT GUARANTEE A DEATH WITHIN A FEW STEPS
+    bomb_drop_deadly = False
+    on_bomb_death_dir, min_pathlength = deadly_directions_after_own_bomb(game_state, also_give_min_pathlength = True)
+    if on_bomb_death_dir.shape[0] == 4:
+        bomb_drop_deadly = True
+
+    standing_on_bomb = False
+    timer = 0
+    for ((b_x,b_y),t) in game_state["bombs"]:
+        if x == b_x and y == b_y:
+            standing_on_bomb = True
+            timer = t
+            break
+
+    if standing_on_bomb:
+        death_actions = np.union1d(imm_death_actions, on_bomb_death_dir)
+
+        # determine whether waiting is deadly:
+        if min_pathlength-1 >= timer:
+            death_actions = np.append(death_actions, np.array(["WAIT"]))
+    else:
+        death_actions = imm_death_actions
+
+    if bomb_drop_deadly:
+        death_actions = np.append(death_actions, np.array(["BOMB"]))
+
+    return death_actions
+
+
+def deadly_directions_after_own_bomb(game_state, also_give_min_pathlength = False):
+    (x,y) = game_state["self"][3]
+    field = game_state["field"]
+    deadly = []
+    pathlengths = [4]
+
+    corresponding_actions = ["RIGHT", "LEFT", "DOWN", "UP"]
+
+    for index, (dx,dy) in [(0,(1,0)), (1,(-1,0)), (2,(0,1)), (3,(0,-1))]:
+        bomb_avoidable = False
+        tile_dist = 1
+        pathlen = 0
+        for tile_dist in range(1,5):
+            # test tile going tile_dist steps in direction dx,dy
+            x_t, y_t = x+tile_dist*dx, y+tile_dist*dy
+
+            # direction is blocked
+            if field[x_t,y_t] != 0:
+                break
+
+            # standing at x+dx,y+dy, check whether we can go sideways from here by swapping dx and dy (one is alwas zero):
+            if field[x_t+dy,y_t+dx] == 0 or field[x_t-dy,y_t-dx] == 0:
+                bomb_avoidable = True
+                pathlen = tile_dist + 1
+                break
+
+
+            # if we are not yet broken out of the loop, the direction points towards a narrow path of length 3. If the 4th tile is free, we can avoid the bomb by going there:
+            if tile_dist == 4 and field[x+4*dx,y+4*dy] == 0:
+                bomb_avoidable = True
+                pathlen = 4
+
+        if not bomb_avoidable:
+            deadly.append(corresponding_actions[index])
+        # store pathlengths of avoidable bombs
+        else:
+            pathlengths.append(pathlen)
+
+
+    if not also_give_min_pathlength:
+        return np.array(deadly)
+    else:
+        return np.array(deadly), min(pathlengths)

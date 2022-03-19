@@ -1,4 +1,5 @@
 from typing import List
+from plot import RealtimePlot, Recorder
 
 import events as e
 
@@ -41,6 +42,16 @@ def setup_custom_vars(self):
     self.killed_self = 0
     self.waited = 0
     self.bomb_dodged = 0
+    self.initial_show_dodging = 0.0
+    self.show_dodging = 0.0
+    self.count_show = 0
+    self.crates = 0
+    #self.plotter_coin = RealtimePlot("Coins", "coins", n_average = 5, loglog = False)
+    #self.plotter_crates = RealtimePlot("Crates", "crates", n_average = 50, loglog = False)
+    #self.plotter_bomb = RealtimePlot("Bombs", "bombs", loglog = False)
+    #self.recorder_coin = Recorder("Coins_only_depth8", ["coins", "steps needed"], 5)
+
+    self.QEstimator.n_steps = 5
 
 def reward_from_events(events: List[str]) -> int:
     # if (DID_MOVE_AWAY_FROM_BOMB in events) or\
@@ -51,22 +62,22 @@ def reward_from_events(events: List[str]) -> int:
 
     game_rewards = {
         e.KILLED_OPPONENT: 500,
-        e.COIN_COLLECTED: 100,
-        e.CRATE_DESTROYED: 50,
+        #e.COIN_COLLECTED: 300,
+        e.CRATE_DESTROYED: 500,
         e.KILLED_SELF: -1000,
-        VALID_ACTION: -1,
-        e.WAITED: -2,
-        MOVED_AWAY_FROM_BOMB: 50,
-        MOVED_NOT_AWAY_FROM_BOMB: -80,
-        MOVED_TOWARDS_COIN: 1,
-        MOVED_AWAY_FROM_COIN: -2,
-        # BOMB_IN_CORNER: -50,
-        # USELESS_BOMB: -200,
-        # USEFUL_BOMB: 10,
-        WAITED_ON_BOMB: -100,
-        DODGED_BOMB: 500,
+        VALID_ACTION: -10,
+        e.WAITED: -5,
+        #MOVED_AWAY_FROM_BOMB: 50,
+        #MOVED_NOT_AWAY_FROM_BOMB: -20,
+        # MOVED_TOWARDS_COIN: 1,
+        # MOVED_AWAY_FROM_COIN: -2,
+        #BOMB_IN_CORNER: -500,
+        # USELESS_BOMB: -400,
+        # USEFUL_BOMB: 500,
+        WAITED_ON_BOMB: -500,
+        DODGED_BOMB: 200,
         # DID_NOT_SURVIVE: -1000,
-        e.SURVIVED_ROUND: 2000
+        #e.SURVIVED_ROUND: 2000
     }
     reward_sum = 0
     for event in events:
@@ -81,6 +92,9 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
     new_features = state_to_features(new_game_state)
 
     new_events = []
+
+    if e.CRATE_DESTROYED in events:
+        self.crates += 1
 
     if e.INVALID_ACTION not in events:
         new_events.append(VALID_ACTION)
@@ -110,38 +124,10 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
         new_events.append(AVOIDED_BOMB)
         self.avoided_bomb += 1
 
-    old_bomb_dist = old_features[-1]
-    new_bomb_dist = new_features[-1]
-
-    if old_bomb_dist != -1:
-        if new_bomb_dist > old_bomb_dist:
-            new_events.append(MOVED_AWAY_FROM_BOMB)
-            self.moved_away += 1
-        else:
-            new_events.append(MOVED_NOT_AWAY_FROM_BOMB)
-
     bombs = [pos for (pos, _) in old_game_state['bombs']]
     if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
         print("Waited on bomb")
         new_events.append(WAITED_ON_BOMB)
-
-        # RISK
-    action_risks = old_features[-5:-1]
-    action_risk_strings = []
-    if action_risks[0] == 1:
-        action_risk_strings.append('UP')
-    if action_risks[1] == 1:
-        action_risk_strings.append('DOWN')
-    if action_risks[2] == 1:
-        action_risk_strings.append('LEFT')
-    if action_risks[3] == 1:
-        action_risk_strings.append('RIGHT')
-
-    if len(action_risk_strings) > 0:
-        if self_action not in action_risk_strings:
-            new_events.append(USEFUL_DIRECTION)
-        else:
-            new_events.append(NOT_USEFUL_DIRECTION)
 
     if self_action == 'BOMB':
         (x,y) = old_game_state['self'][3]
@@ -195,18 +181,32 @@ def print_progress(self, last_game_state, last_action, events):
     self.transitions = []
 
     print(f"Coins collected: {last_game_state['self'][1]}")
-    print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
+    #self.plotter_coin.append(last_game_state['step'])
+    # self.plotter_coin.store()
+    #self.recorder_coin.append([last_game_state['self'][1], last_game_state['step']])
+    #self.recorder_coin.store()
+    # print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
     self.invalid = 0
-    print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
+    # print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
     self.bombs = 0
     self.killed_self = 0
-    print(f"Avoided bombs {self.avoided_bomb} times")
+    print(f"Dodged bombs {self.bomb_dodged-self.count_show} times")
+    # self.plotter_bomb.append(self.bomb_dodged-self.count_show)
+    # self.plotter_bomb.store()
+    # if self.count_show != 0:
+    #     print(f"Showed Dodging {self.count_show} times")
+    self.bomb_dodged = 0
+    self.count_show = 0
     self.avoided_bomb = 0
     self.moved_away = 0
-    print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
+    print(f"Destroyed crates {self.crates} times")
+    #self.plotter_crates.append(self.crates)
+    self.crates = 0
+
+    print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}, dodge_rate = {self.show_dodging:.2f}")
     print(f"Survived {last_game_state['step']} rounds")
-    self.epsilon = self.initial_epsilon/(1 + 0.004*last_game_state['round'])
-    self.learning_rate = self.initial_learning_rate/(1 + 0.002*last_game_state['round'])
+    self.epsilon = max(0.001,self.initial_epsilon/(1 + last_game_state['round']/2000))
+    self.learning_rate = max(0.01, self.initial_learning_rate/(1 + last_game_state['round']/2000))
     self.QEstimator.update_learning_rate(self.learning_rate)
-    self.show_dodging = self.show_dodging/(1 + 0.001*last_game_state['round'])
+    self.show_dodging = self.initial_show_dodging/(1 + last_game_state['round']/1000)
     print()
