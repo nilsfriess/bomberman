@@ -13,6 +13,10 @@ def find_path(field, start, goal):
     
     weights = weights + 1 # weights must be >= 1
     weights[field != 0] = np.inf # walls have infinite weight
+
+    # Set field at goal to zero if we are looking for something on the field
+    # Otherwise the algorithm would not find a path to the target.
+    weights[goal] = 1
     
     # Compute shortest path from start to goal using A*
     path = pyastar2d.astar_path(weights, start, goal, allow_diagonal=False)

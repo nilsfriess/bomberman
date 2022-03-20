@@ -165,9 +165,7 @@ def rotate_game_to_upper_left(game_state):
     game field rendered in the GUI (upper right and lower left
     are swapped, since the GUI game field is a transposed version
     of the game_state['field']).
-    '''
-    return game_state, 0
-    
+    '''    
     (_,_,_,(x,y)) = game_state['self']
     if (x <= 8) and (y <= 8):
         # upper left
@@ -189,7 +187,10 @@ def rotate_game_to_upper_left(game_state):
     #print(f"Position after rotation {game_state['self'][3]}")
 
     return game_state, quad
-    
+
+def mirror_game_state_lr(game_state):
+    return transform_game_state(game_state, np.fliplr)
+
 '''
 Returns a new game_state that represents the state
 after n 90 degree rotations in clockwise direction.
@@ -211,17 +212,15 @@ def rotate_action(action, n):
     if n == 0:
         return action
 
-    print("NOOOO")
-
     if (action == 'WAIT') or (action == 'BOMB'):
         rot_action = action
     elif action == 'UP':
-        rot_action = 'RIGHT'
-    elif action == 'DOWN':
         rot_action = 'LEFT'
+    elif action == 'DOWN':
+        rot_action = 'RIGHT'
     elif action == 'LEFT':
-        rot_action = 'UP'
-    elif action == 'RIGHT':
         rot_action = 'DOWN'
+    elif action == 'RIGHT':
+        rot_action = 'UP'
 
     return rotate_action(rot_action, n-1)

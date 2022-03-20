@@ -5,7 +5,7 @@ from .base_helpers import find_next_step_to_assets, direction_from_coordinates, 
 from .bomb_helpers import bomb_usefulness, should_drop_bomb
 from .state_action_helpers import one_hot_action
 
-def state_to_features(game_state: dict) -> np.array:
+def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
     if game_state is None:
         return np.array([])
     
@@ -13,9 +13,9 @@ def state_to_features(game_state: dict) -> np.array:
     ''' OWN POSITION '''
     (_,_,_,self_pos) = game_state['self']
     field = np.array(game_state['field'])
-    own_position = np.zeros((field.shape[0], field.shape[1]))
-    own_position[self_pos] = 1
-    #own_position = np.array(self_pos)
+    # own_position = np.zeros((field.shape[0], field.shape[1]))
+    # own_position[self_pos] = 1
+    own_position = np.array(self_pos)
 
     ''' DIRECTION TO CLOSEST COIN '''
     # Find 5 closest coins, where `close` is w.r.t. the cityblock distance
@@ -41,6 +41,30 @@ def state_to_features(game_state: dict) -> np.array:
     else:
         coin_direction = direction_from_coordinates(self_pos,
                                                     self_pos)
+
+    ''' DIRECTION TO CLOSEST CRATE '''
+    crates_coords = np.argwhere(field == 1)
+    if len(crates_coords) > 0:
+        dist_to_crates = cdist(crates_coords, [self_pos], 'cityblock')
+
+        n_closest_crates = 5
+        crates_by_distance = crates_coords[np.argpartition(dist_to_crates.ravel(),
+                                                           n_closest_crates-1)]
+        closest_crates = crates_by_distance[:n_closest_crates]
+
+        coord_to_closest_crate = find_next_step_to_assets(field,
+                                                         enemies,
+                                                         self_pos,
+                                                         closest_crates)        
+
+        crates_direction = direction_from_coordinates(self_pos,
+                                                      coord_to_closest_crate)
+                                                    
+        
+
+    else:
+        crates_direction = direction_from_coordinates(self_pos,
+                                                     self_pos)
 
     # ''' ENEMY DIRECTIONS '''
     # coord_to_closest_enemy = find_next_step_to_assets(field,
@@ -105,9 +129,9 @@ def state_to_features(game_state: dict) -> np.array:
     ''' Is dropping a bomb a valid move '''
     bomb_allowed = int(game_state['self'][2])
 
-    features = np.concatenate([
+    features = [
         #crate_direction.ravel(),
-        field.ravel(),
+        #field.ravel(),
         own_position.ravel(),
         coin_direction.ravel(),
         #closest_enemy_direction.ravel(),
@@ -117,6 +141,7 @@ def state_to_features(game_state: dict) -> np.array:
         #explosion_window.ravel(),#
         #bombs_window.ravel(),
         crates_around.ravel(),
+        crates_direction.ravel(),
         #closest_bomb_direction.ravel(),
         #coord_to_closest_bomb.ravel()
         #risk.ravel(),
@@ -124,13 +149,29 @@ def state_to_features(game_state: dict) -> np.array:
         risk_factors.ravel(),
         zero_risk_direction.ravel(),
         [bomb_allowed],
-        [bomb_safety],
+        #[bomb_safety],
         [bomb_useful]
         #bomb_safety_action_one_hot.ravel()
         #[bomb_useless]
-    ])
+    ]
 
-    #print(len(features))
+    if with_feature_list:
+        feature_names = {
+            'own position' : 0,
+            'coin direction': 0,
+            'crates around': 0,
+            'crate direction' : 0,
+            'risk around' : 0,
+            'zero risk dir' : 0,
+            'bomb allowed' : 0,
+            #'bomb safety' : 0,
+            'bomb useful' : 0
+        }
 
-    return features
+        for i, feature in enumerate(feature_names):
+            feature_names[feature] = len(features[i])
+
+        return np.concatenate(features), feature_names
+
+    return np.concatenate(features)
 
