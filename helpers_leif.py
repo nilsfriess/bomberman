@@ -79,6 +79,16 @@ def get_step_neighbourhood(x, y, n_steps):
                         counter += 1
     return neighb
 
+# returns
+#   1 if constrained by up down
+#  -1 if constrained by left right
+#  0 if not constrained
+def get_is_constrained(game_state) -> int:
+
+    return 0
+
+
+
 
 
 def find_next_step_to_closest_coin(field, self_pos, coins):

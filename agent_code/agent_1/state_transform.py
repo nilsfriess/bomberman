@@ -41,7 +41,7 @@ def train_act(self, game_state: dict) -> str:
     #################
     # tweak probability to dodge a bomb:
     NEW_ACTIONS = np.array(["UP", "DOWN", "LEFT", "RIGHT"])
-    if train_act.counter != 0:
+    if train_act.counter > 1:
 
         train_act.counter += 1
         if train_act.counter == 5:
@@ -58,10 +58,24 @@ def train_act(self, game_state: dict) -> str:
         else:
             return best_action
 
+    if train_act.counter == 1:
+        train_act.counter += 1
+        death_actions = death_implying_actions(game_state)
+        VALID_ACTIONS = np.setdiff1d(valid_actions(game_state), death_actions)
+
+        #VALID_ACTIONS = np.setdiff1d(VALID_ACTIONS, np.array(("BOMB")))
+
+        if len(VALID_ACTIONS) > 0:
+            action = np.random.choice(len(VALID_ACTIONS))
+            return VALID_ACTIONS[action]
+        else:
+            return "WAIT"
+
     if np.random.uniform() < self.show_dodging and game_state["self"][2]:
-        train_act.counter = 1
-        self.count_show += 1
-        return "BOMB"
+        if np.intersect1d(np.array(["BOMB"]), death_implying_actions(game_state)).shape[0] == 0:
+            train_act.counter = 1
+            self.count_show += 1
+            return "BOMB"
     ##################
 
 

@@ -42,7 +42,7 @@ def setup_custom_vars(self):
     self.killed_self = 0
     self.waited = 0
     self.bomb_dodged = 0
-    self.initial_show_dodging = 0.0
+    self.initial_show_dodging = 0.2
     self.show_dodging = 0.0
     self.count_show = 0
     self.crates = 0
@@ -51,7 +51,7 @@ def setup_custom_vars(self):
     #self.plotter_bomb = RealtimePlot("Bombs", "bombs", loglog = False)
     #self.recorder_coin = Recorder("Coins_only_depth8", ["coins", "steps needed"], 5)
 
-    self.QEstimator.n_steps = 5
+    self.QEstimator.n_steps = 2
 
 def reward_from_events(events: List[str]) -> int:
     # if (DID_MOVE_AWAY_FROM_BOMB in events) or\
@@ -63,7 +63,7 @@ def reward_from_events(events: List[str]) -> int:
     game_rewards = {
         e.KILLED_OPPONENT: 500,
         #e.COIN_COLLECTED: 300,
-        e.CRATE_DESTROYED: 500,
+        #e.CRATE_DESTROYED: 500,
         e.KILLED_SELF: -1000,
         VALID_ACTION: -10,
         e.WAITED: -5,
@@ -72,10 +72,10 @@ def reward_from_events(events: List[str]) -> int:
         # MOVED_TOWARDS_COIN: 1,
         # MOVED_AWAY_FROM_COIN: -2,
         #BOMB_IN_CORNER: -500,
-        # USELESS_BOMB: -400,
-        # USEFUL_BOMB: 500,
-        WAITED_ON_BOMB: -500,
-        DODGED_BOMB: 200,
+        USELESS_BOMB: -400,
+        USEFUL_BOMB: 500,
+        WAITED_ON_BOMB: -100,
+        #DODGED_BOMB: 200,
         # DID_NOT_SURVIVE: -1000,
         #e.SURVIVED_ROUND: 2000
     }
