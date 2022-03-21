@@ -60,7 +60,7 @@ class GBTEstimator:
             self.feature_names = names
             
         X,y = self.qlearning(transitions)
-
+        
         self.regressor.fit(X, y)
         self.regressor.n_estimators += 1
                 
@@ -71,27 +71,31 @@ class GBTEstimator:
             self.report_feature_importance()
             self.print_cnt = 0
 
+    # 3 step TD
     def qlearning(self, transitions):
         num_trans = len(transitions)
         
-        X = np.empty((num_trans-1, self.feature_size + len(ACTIONS)))
-        y = np.empty((num_trans-1,))
+        X = np.empty((num_trans-2, self.feature_size + len(ACTIONS)))
+        y = np.empty((num_trans-2,))
 
-        for i in range(len(transitions) - 1):
+        for i in range(len(transitions) - 2):
             (now_old_state, now_action, _, now_reward) = transitions[i]
-            (_, _, next_new_state, next_reward) = transitions[i+1]
+            (_, _, _, next_reward) = transitions[i+1]
+            (_, _, next_next_new_state, next_next_reward) = transitions[i+2]
             
-            rewards = now_reward + self.discount_factor*next_reward
+            rewards = now_reward + \
+                self.discount_factor*next_reward + \
+                self.discount_factor**2 * next_next_reward
 
             if self.not_fitted:
                 qvalues = [0]
             else:
-                state = state_to_features(next_new_state)
+                state = state_to_features(next_next_new_state)
                 qvalues = [self.regressor.predict(np.append(state, one_hot_action(a)).reshape(1,-1)) for a in ACTIONS]
 
             state = state_to_features(now_old_state)
             
             X[i,:] = np.append(state, one_hot_action(now_action))
-            y[i] = rewards + self.discount_factor * self.discount_factor * max(qvalues)
+            y[i] = rewards + self.discount_factor**3 * max(qvalues)
             
         return X,y

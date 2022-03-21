@@ -10,7 +10,7 @@ from .base_helpers import ACTIONS
 def setup(self):
     self.epsilon = 0.4
     self.learning_rate = 0.2
-    self.discount_factor = 0.95
+    self.discount_factor = 0.8
 
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
