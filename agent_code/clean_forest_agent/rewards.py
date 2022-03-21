@@ -23,6 +23,7 @@ BOMB_IN_CORNER = 'BOMB_IN_CORNER'
 
 USEFUL_BOMB = 'USEFUL_BOMB'
 USELESS_BOMB = 'USELESS_BOMB'
+VERY_USEFUL_BOMB = 'VERY_USEFUL_BOMB'
 
 WAITED_ON_BOMB = 'WAITED_ON_BOMB'
 
@@ -46,32 +47,23 @@ def reward_from_events(events):
     
     game_rewards = {
         e.KILLED_OPPONENT: 500,
-        e.COIN_COLLECTED: 150,
-        #e.CRATE_DESTROYED: 10,
-        e.INVALID_ACTION: -100,
-        ILLEGAL_BOMB: -50,
-        #e.KILLED_SELF: -500,
-        VALID_ACTION: -2,
+        e.COIN_COLLECTED: 100,
+        e.INVALID_ACTION: -80,
+        VALID_ACTION: -5,
         BOMB_IN_CORNER: -20,
         USELESS_BOMB: -100,
-        USEFUL_BOMB: 50,
-        WAITED_ON_BOMB: -200,
-        MOVED_TOWARDS_BOMB: -500,
-        MOVED_AWAY_FROM_BOMB: 100,
-        AVOIDED_EXPLOSION: 100,
-        ESCAPED_BOMB_BY_TURNING: 10,
-        DID_NOT_TURN_AFTER_BOMB: -20,
-        MOVED_TOWARDS_COIN: 5,
-        MOVED_AWAY_FROM_COIN: -5,
-        DECREASED_RISK: 100,
-        ESCAPED_RISK: 100,
-        INCREASED_RISK: -100,
+        USEFUL_BOMB: 40,
+        VERY_USEFUL_BOMB: 100,
+        MOVED_TOWARDS_BOMB: -50,
+        MOVED_AWAY_FROM_BOMB: 20,
+        MOVED_TOWARDS_COIN: 20,
+        MOVED_AWAY_FROM_COIN: -30,
+        DECREASED_RISK: 30,
+        #ESCAPED_RISK: 40,
+        INCREASED_RISK: -60,
         DROPPED_SUICIDE_BOMB: -500,
-        DROPPED_UNSAFE_BOMB: -200,
+        DROPPED_UNSAFE_BOMB: -100,
         DROPPED_SAFE_BOMB: -10
-        
-        # DID_NOT_SURVIVE: -1000,
-        # e.SURVIVED_ROUND: 2000
     }
     reward_sum = 0
     for event in events:

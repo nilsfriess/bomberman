@@ -5,16 +5,14 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from .base_helpers import ACTIONS
 
-from .state_action_helpers import random_action, one_hot_action, rotate_game_to_upper_left, rotate_action, rotate_game_state, mirror_game_state_lr
+from .state_action_helpers import random_action, one_hot_action
 from .state_transform import state_to_features
 
 class GBTEstimator:
     def __init__(self, learning_rate, discount_factor):
         self.discount_factor = discount_factor
 
-        self.regressors = dict()
-        for action in ACTIONS:
-            self.regressors[action] = GradientBoostingRegressor(warm_start=True,
+        self.regressor = GradientBoostingRegressor(warm_start=True,
                                                    max_depth=3,
                                                    learning_rate = learning_rate,
                                                    n_estimators=1)
@@ -22,36 +20,24 @@ class GBTEstimator:
         self.first_update = True
         self.not_fitted   = True
 
-        self.mirror = False
+        self.print_importance_every = 10
+        self.print_cnt = 0
 
     def update_learning_rate(self, new_rate):
-        pass
-        # self.regressor.learning_rate = new_rate
+        self.regressor.learning_rate = new_rate
 
     ''' If action is None, just return the best action and corresponding value '''
-    def estimate(self, game_state: dict, rotate = True):
+    def estimate(self, game_state):
         if self.not_fitted:
-            return np.zeros((len(ACTIONS),))
-
-        if rotate:
-            game_state, rotations = rotate_game_to_upper_left(game_state)
+            return random_action(allow_bombs = False)
             
         state = state_to_features(game_state)
+        qvalues = [self.regressor.predict(np.append(state,
+                                                    one_hot_action(action)
+                                                    ).reshape(1,-1))[0] for action in ACTIONS]
+        best_action = ACTIONS[np.argmax(qvalues)]
 
-        qvalues = [self.regressors[action].predict(np.append(state,
-                                                             one_hot_action(action)
-                                                             ).reshape(1,-1))[0] for action in ACTIONS]
-
-        if rotate:
-            rot_actions = [rotate_action(action, rotations) for action in ACTIONS]
-
-            rot_qvals = np.zeros((len(ACTIONS),))
-            for i, action in enumerate(ACTIONS):
-                index_in_rot = rot_actions.index(action)
-                rot_qvals[index_in_rot] = qvalues[i]
-            qvalues = rot_qvals
-                
-        return qvalues
+        return best_action
 
     def report_feature_importance(self):
         importances = self.regressor.feature_importances_
@@ -78,54 +64,35 @@ class GBTEstimator:
 
         self.regressor.fit(X, y)
         self.regressor.n_estimators += 1
-
-        # Transform transitions by mirroring every state and train again
-        if self.mirror:
-            for i, (old_game_state, action, new_game_state, reward) in enumerate(transitions):
-                mir_old_game_state = mirror_game_state_lr(old_game_state)
-                mir_new_game_state = mirror_game_state_lr(new_game_state)
-
-                if action == 'UP':
-                    mir_action = 'DOWN'
-                elif action == 'DOWN':
-                    mir_action = 'UP'
-                else:
-                    mir_action = action
-
-                transitions[i] = (mir_old_game_state, mir_action, mir_new_game_state, reward)
-
-        X,y = self.qlearning(transitions)
-
-        self.regressor.fit(X, y)
-        self.regressor.n_estimators += 1
                 
         self.not_fitted = False
 
-        self.report_feature_importance()
+        self.print_cnt += 1
+        if self.print_cnt == self.print_importance_every:
+            self.report_feature_importance()
+            self.print_cnt = 0
 
     def qlearning(self, transitions):
         num_trans = len(transitions)
         
-        X = np.empty((num_trans, self.feature_size + len(ACTIONS)))
-        y = np.empty((num_trans,))
+        X = np.empty((num_trans-1, self.feature_size + len(ACTIONS)))
+        y = np.empty((num_trans-1,))
 
-        for i, (old_game_state, action, new_game_state, reward) in enumerate(transitions):            
-            old_game_state, rotations = rotate_game_to_upper_left(old_game_state)
-            new_game_state, _ = rotate_game_to_upper_left(new_game_state)
-
+        for i in range(len(transitions) - 1):
+            (now_old_state, now_action, _, now_reward) = transitions[i]
+            (_, _, next_new_state, next_reward) = transitions[i+1]
             
-            old_state = state_to_features(old_game_state)
-            new_state = state_to_features(new_game_state)
+            rewards = now_reward + self.discount_factor*next_reward
 
-            action = rotate_action(action, rotations)
-            
             if self.not_fitted:
-                qvalues = 0
+                qvalues = [0]
             else:
-                qvalues = [self.regressor.predict(np.append(new_state, one_hot_action(action)).reshape(1,-1))
-                           for action in ACTIONS]
-                
-            X[i,:] = np.append(old_state, one_hot_action(action))
-            y[i] = reward + self.discount_factor * np.amax(qvalues)
+                state = state_to_features(next_new_state)
+                qvalues = [self.regressor.predict(np.append(state, one_hot_action(a)).reshape(1,-1)) for a in ACTIONS]
 
+            state = state_to_features(now_old_state)
+            
+            X[i,:] = np.append(state, one_hot_action(now_action))
+            y[i] = rewards + self.discount_factor * self.discount_factor * max(qvalues)
+            
         return X,y

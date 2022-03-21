@@ -4,6 +4,8 @@ from scipy.spatial.distance import cdist
 
 from settings import ROWS, COLS
 
+from .bomb_helpers import should_drop_bomb
+
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
 coords = [[i,j] for i in range(ROWS) for j in range(COLS)]
@@ -12,7 +14,7 @@ def find_path(field, start, goal):
     weights = cdist(coords, [start], 'cityblock').reshape(ROWS, COLS).astype(np.float32)
     
     weights = weights + 1 # weights must be >= 1
-    weights[field != 0] = np.inf # walls have infinite weight
+    weights[field != 0] = 10e9 # walls have very weight
 
     # Set field at goal to zero if we are looking for something on the field
     # Otherwise the algorithm would not find a path to the target.
@@ -103,48 +105,58 @@ def compute_risk_map(game_state):
     is within the explosion radius, the tile has a high risk.
     Free tiles or tiles with coins have low risk.
     '''
-
-    # Explosions are definitely high-risk regions
-    risk_map = 100*np.array(game_state['explosion_map'])
     field = game_state['field']
+    self_pos = game_state['self'][3]
+    
+    # Explosions are definitely high-risk regions
+    risk_map = np.array(game_state['explosion_map'], dtype=int)
+    risk_map[risk_map != 0] = 100
+    risk_map[field != 0] = 200
 
-    #  risk_map[field == -1] = 10
+    # Below, we subtract the number of available "escape squares" from the risk.
+    # Walking to a square with only one escape square is very risk, if many
+    # escape squares are available, the agent has different escape paths to
+    # choose from.
+    _, n_escape_squares = should_drop_bomb(game_state)
     
     for bomb_pos, bomb_val in game_state['bombs']:
-        bomb_risk = 50 - 10*(bomb_val + 1)   # Bombs are riskier, the lower their timer is
+        if (abs(bomb_pos[0] - self_pos[0]) + abs(bomb_pos[1] - self_pos[1])) >= 6:
+            # Bomb not near us, check next bomb
+            continue
+
+        bomb_risk = 100 - 10*bomb_val   # Bombs are riskier, the lower their timer is
+        risk_map[bomb_pos] = 100
         
-        risk_map[bomb_pos] = bomb_risk
-        
-        for k in [-1,-2,-3]:
+        for k in [-1,-2,-3]: # Left of bomb
             coord_on_field = (bomb_pos[0] + k, bomb_pos[1])
 
             if field[coord_on_field] == -1:
                 # Reached a wall, no need to look further
                 break
-            risk_map[coord_on_field] = bomb_risk - abs(k)
+            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['LEFT']
 
-        for k in [1,2,3]:
+        for k in [1,2,3]: # Right of bomb
             coord_on_field = (bomb_pos[0] + k, bomb_pos[1])
 
             if field[coord_on_field] == -1:
                 # Reached a wall, no need to look further
                 break
-            risk_map[coord_on_field] = bomb_risk - abs(k)
+            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['RIGHT']
 
-        for k in [-1,-2,-3]:
+        for k in [-1,-2,-3]: # Above bomb
             coord_on_field = (bomb_pos[0], bomb_pos[1]+k)
 
             if field[coord_on_field] == -1:
                 # Reached a wall, no need to look further
                 break
-            risk_map[coord_on_field] = bomb_risk - abs(k)
+            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['UP']
 
-        for k in [1,2,3]:
+        for k in [1,2,3]: # Below bomb
             coord_on_field = (bomb_pos[0], bomb_pos[1]+k)
 
             if field[coord_on_field] == -1:
                 # Reached a wall, no need to look further
                 break
-            risk_map[coord_on_field] = bomb_risk - abs(k)
-
+            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['DOWN']
+            
     return risk_map
