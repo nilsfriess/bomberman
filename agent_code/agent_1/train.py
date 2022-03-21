@@ -25,7 +25,6 @@ def setup_training(self):
     """
     # experience buffer
     self.transitions = []
-    self.show_dodging = 0.1
 
     setup_custom_vars(self)
 
@@ -62,7 +61,6 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     self.transitions.append((self.old_features,
                              self_action,
-                             new_features,
                              reward_from_events(events)))
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -80,7 +78,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     """
     self.transitions.append((self.old_features,
                             last_action,
-                            state_to_features(last_game_state),
                             reward_from_events(events)))
 
     # Update Q by a Gradient Boost step
@@ -90,4 +87,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     print_progress(self, last_game_state, last_action, events)
 
     # Store the model
-    store_model(last_game_state, self.QEstimator.regressor)
+    try:
+        store_model(last_game_state, self.QEstimator.regressor)
+    except KeyboardInterrupt:
+        store_model(last_game_state, self.QEstimator.regressor)

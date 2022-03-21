@@ -4,6 +4,8 @@ from settings import ROWS,COLS
 
 from helpers_leif import *
 
+from time import sleep
+
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
         return np.array([])
@@ -14,18 +16,22 @@ def state_to_features(game_state: dict) -> np.array:
     field = np.array(game_state["field"])
 
 
-    coin_positions = direction_to_best_coin(field, x, y, coins, 3)
+    #coin_positions = direction_to_best_coin(field, x, y, coins, 3)
 
     #blocked = blocked_neighbourhood(game_state, x, y, 1)
 
     bombs = neighbouring_bomb_locations_t(game_state, x, y, 2)
-    danger = np.append(bomb_danger_in_t(game_state, x, y, 2, 3), bomb_danger_in_t(game_state, x, y, 2, (0,2)))
+    danger = bomb_danger_in_t(game_state, x, y, 2, (1,3))
+    crates = crates_in_neighbourhood(game_state, x, y, 4)
 
-
+    edges = is_at_edge(game_state)
 
     features = np.concatenate([
+    #coin_positions,
     bombs,
-    danger
+    danger,
+    crates,
+    edges
     ]).astype(np.int8)
 
     return features
@@ -35,7 +41,7 @@ def train_act(self, game_state: dict) -> str:
     #################
     # tweak probability to dodge a bomb:
     NEW_ACTIONS = np.array(["UP", "DOWN", "LEFT", "RIGHT"])
-    if train_act.counter != 0:
+    if train_act.counter > 1:
 
         train_act.counter += 1
         if train_act.counter == 5:
@@ -52,9 +58,24 @@ def train_act(self, game_state: dict) -> str:
         else:
             return best_action
 
-    if np.random.uniform() < self.show_dodging:
-        train_act.counter = 1
-        return "BOMB"
+    if train_act.counter == 1:
+        train_act.counter += 1
+        death_actions = death_implying_actions(game_state)
+        VALID_ACTIONS = np.setdiff1d(valid_actions(game_state), death_actions)
+
+        #VALID_ACTIONS = np.setdiff1d(VALID_ACTIONS, np.array(("BOMB")))
+
+        if len(VALID_ACTIONS) > 0:
+            action = np.random.choice(len(VALID_ACTIONS))
+            return VALID_ACTIONS[action]
+        else:
+            return "WAIT"
+
+    if np.random.uniform() < self.show_dodging and game_state["self"][2]:
+        if np.intersect1d(np.array(["BOMB"]), death_implying_actions(game_state)).shape[0] == 0:
+            train_act.counter = 1
+            self.count_show += 1
+            return "BOMB"
     ##################
 
 
@@ -62,6 +83,8 @@ def train_act(self, game_state: dict) -> str:
     # act:
     death_actions = death_implying_actions(game_state)
     VALID_ACTIONS = np.setdiff1d(valid_actions(game_state), death_actions)
+
+    #VALID_ACTIONS = np.setdiff1d(VALID_ACTIONS, np.array(("BOMB")))
 
     if len(VALID_ACTIONS) > 0:
         if np.random.uniform() < 1-self.epsilon:
@@ -77,7 +100,6 @@ def train_act(self, game_state: dict) -> str:
 
     else:
         best_action = "WAIT"
-        print("HJBJHBGH")
 
     return best_action
 
