@@ -80,8 +80,8 @@ def get_step_neighbourhood(x, y, n_steps):
     return neighb
 
 # returns
-#   1 if constrained by up down
-#  -1 if constrained by left right
+#  1 if constrained by up down
+#  2 if constrained by left right
 #  0 if not constrained
 def get_is_constrained(game_state) -> int:
 
