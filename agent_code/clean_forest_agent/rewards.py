@@ -24,6 +24,7 @@ BOMB_IN_CORNER = 'BOMB_IN_CORNER'
 USEFUL_BOMB = 'USEFUL_BOMB'
 USELESS_BOMB = 'USELESS_BOMB'
 VERY_USEFUL_BOMB = 'VERY_USEFUL_BOMB'
+EXTREMELY_USEFUL_BOMB = 'EXTREMELY_USEFUL_BOMB'
 
 WAITED_ON_BOMB = 'WAITED_ON_BOMB'
 
@@ -38,32 +39,32 @@ DROPPED_SAFE_BOMB = 'DROPPED_SAFE_BOMB'
 
 ILLEGAL_BOMB = 'ILLEGAL_BOMB'
 
+WALKED_AWAY_FROM_TARGET = 'WALKED_AWAY_FROM_TARGET'
+WALKED_TOWARDS_TARGET = 'WALKED_TOWARDS_TARGET'
+
+TOOK_LOWEST_RISK_DIRECTION = 'TOOK_LOWEST_RISK_DIRECTION'
+
 def reward_from_events(events):
-    # if (DID_MOVE_AWAY_FROM_BOMB in events) or\
-    #    (DID_NOT_MOVE_AWAY_FROM_BOMB in events) or\
-    #    (USEFUL_DIRECTION in events) or\
-    #    (NOT_USEFUL_DIRECTION in events):
-    #     print("Custom event")
-    
     game_rewards = {
-        e.KILLED_OPPONENT: 500,
+        e.KILLED_OPPONENT: 200,
         e.COIN_COLLECTED: 100,
         e.INVALID_ACTION: -80,
         VALID_ACTION: -5,
         BOMB_IN_CORNER: -20,
-        USELESS_BOMB: -100,
-        USEFUL_BOMB: 40,
-        VERY_USEFUL_BOMB: 100,
-        MOVED_TOWARDS_BOMB: -50,
-        MOVED_AWAY_FROM_BOMB: 20,
-        MOVED_TOWARDS_COIN: 20,
-        MOVED_AWAY_FROM_COIN: -30,
-        DECREASED_RISK: 30,
+        USELESS_BOMB: -150,
+        USEFUL_BOMB: 10,
+        VERY_USEFUL_BOMB: 25,
+        EXTREMELY_USEFUL_BOMB: 80,
+        WALKED_TOWARDS_TARGET: 50,
+        WALKED_AWAY_FROM_TARGET: -50,
+        DECREASED_RISK: 60, # Not taking the correct direction but decreasing risk is good
+        TOOK_LOWEST_RISK_DIRECTION: 30,
         #ESCAPED_RISK: 40,
-        INCREASED_RISK: -60,
+        INCREASED_RISK: -150,
         DROPPED_SUICIDE_BOMB: -500,
-        DROPPED_UNSAFE_BOMB: -100,
-        DROPPED_SAFE_BOMB: -10
+        DROPPED_UNSAFE_BOMB: -200,
+        DROPPED_SAFE_BOMB: -10,
+        e.KILLED_SELF: -200
     }
     reward_sum = 0
     for event in events:

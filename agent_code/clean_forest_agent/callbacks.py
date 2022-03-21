@@ -8,10 +8,14 @@ from .state_action_helpers import generate_stupid_actions, random_action, genera
 from .base_helpers import ACTIONS
 
 def setup(self):
-    self.epsilon = 0.08
+    self.epsilon = 0.4
+    self.learning_rate = 0.2
     self.discount_factor = 0.95
 
-    self.action_filter_prob = 0.8
+    self.initial_epsilon = self.epsilon
+    self.initial_learning_rate = self.learning_rate
+
+    self.action_filter_prob = 1
     
     self.estimator = GBTEstimator(0.1, self.discount_factor)
 

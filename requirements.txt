@@ -3,3 +3,4 @@ pyastar2d
 pygame
 tqdm
 sklearn
+xgboost

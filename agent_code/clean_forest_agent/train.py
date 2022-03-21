@@ -7,7 +7,8 @@ import events as e
 import numpy as np
 from scipy.spatial.distance import cdist
 
-from .base_helpers import compute_risk_map, find_next_step_to_assets
+from .state_transform import state_to_features
+from .base_helpers import compute_risk_map, find_next_step_to_assets, action_from_direction
 from .bomb_helpers import bomb_usefulness, should_drop_bomb
 
 def setup_training(self):
@@ -52,14 +53,21 @@ def end_of_round(self, last_game_state, last_action, events):
                             last_game_state,
                             reward_from_events(events)))
 
+    self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
+    self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
+
+    self.estimator.regressor.learning_rate = self.learning_rate
+
+    self.action_filter_prob = 1 / (1 + 0.0005*last_game_state['round'])
+    
     total_reward = 0
     for _,_,_,reward in self.transitions:
         total_reward += reward
-        
+
     print_progress(self, last_game_state, last_action, events)
     print(f"Total reward {total_reward}")
     
-    # Update the amf tree and throw away the transitions
+    # Update the gb tree and throw away the transitions
     if len(self.transitions) > 1:
         # Only train with sufficiently many transitions
         self.estimator.update(self.transitions)
@@ -77,32 +85,18 @@ def compute_custom_events(self, old_game_state, self_action, new_game_state, eve
 
     if (e.INVALID_ACTION not in events) and (self_action != 'WAIT'):
         events.append(VALID_ACTION)
+
+
+    # Check if we walked towards target
     
-    # Find 5 closest coins, where `close` is w.r.t. the cityblock distance
-    (_,_,_,self_pos) = old_game_state['self']
-    (_,_,_,new_self_pos) = new_game_state['self']
-    field = np.array(old_game_state['field'])
-    game_coins = np.array(old_game_state['coins'])
-    enemies = [(x,y) for (_,_,_,(x,y)) in old_game_state['others']]
-    
-    if len(game_coins) > 0:
-        dist_to_coins = cdist(game_coins, [self_pos], 'cityblock')
+    old_features = state_to_features(old_game_state)
+    target_direction = old_features[:4]
+    target_action = action_from_direction(target_direction)
 
-        n_closest_coins = min(len(game_coins), 5)
-        coins = game_coins[np.argpartition(dist_to_coins.ravel(),
-                                           n_closest_coins-1)]
-        closest_coins = coins[:n_closest_coins]
-
-        coord_to_closest_coin = find_next_step_to_assets(field,
-                                                         [],
-                                                         self_pos,
-                                                         closest_coins)
-
-        if np.array_equal(new_self_pos, coord_to_closest_coin):
-            events.append(MOVED_TOWARDS_COIN)
-        else:
-            if e.INVALID_ACTION not in events:
-                events.append(MOVED_AWAY_FROM_COIN)
+    if (VALID_ACTION in events) and (target_action == self_action):
+        events.append(WALKED_TOWARDS_TARGET)
+    else:
+        events.append(WALKED_AWAY_FROM_TARGET)
                 
     # Bomb-related events
     old_self_pos = old_game_state['self'][3]
@@ -128,15 +122,21 @@ def compute_custom_events(self, old_game_state, self_action, new_game_state, eve
         if new_game_state['self'][3] in corners:
             events.append(BOMB_IN_CORNER)
 
-        bomb_useful = bomb_usefulness(old_game_state)
+        n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(old_game_state)
         
-        if bomb_useful == 0:
+        if n_destroyable_crates + n_destroyable_enemies == 0:
             events.append(USELESS_BOMB)
-        elif (bomb_useful > 0) and (bomb_useful < 10):
-            events.append(USEFUL_BOMB)
         else:
-            # Bomb tries to kill enemy
-            events.append(VERY_USEFUL_BOMB)
+            # Either destroys crates or enemies
+            if n_destroyable_enemies == 0:
+                # Bomb destroys some crates, the more, the better
+                if n_destroyable_crates < 3:
+                    events.append(USEFUL_BOMB)
+                else:
+                    events.append(VERY_USEFUL_BOMB)
+            else:
+                # Bomb tries to kill enemy
+                events.append(EXTREMELY_USEFUL_BOMB)
 
         n_escape_squares, _ = should_drop_bomb(old_game_state)
 
@@ -165,16 +165,16 @@ def compute_custom_events(self, old_game_state, self_action, new_game_state, eve
     # Check if we went in the direction with the lowest risk
     risk_factors = np.zeros((5,))
 
-    x,y = old_self_pos
+    x,y = old_self_pos    
     risk_factors[0] = risk_map[(x+1,y)]
     risk_factors[1] = risk_map[(x-1,y)]
     risk_factors[2] = risk_map[(x,y+1)]
     risk_factors[3] = risk_map[(x,y-1)]
+    risk_factors[4] = risk_map[(x,y)]
 
-            
-    # Update counters
-    if AVOIDED_EXPLOSION in events:
-        self.avoided_bomb += 1
+    if (risk_map[old_self_pos] > 0) and (risk_map[new_self_pos] == np.amin(risk_factors)):
+        # Took direction with lowest risk
+        events.append(TOOK_LOWEST_RISK_DIRECTION)
 
     if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):
         self.invalid += 1
@@ -206,7 +206,7 @@ def print_progress(self, last_game_state, last_action, events):
     print(f"Action filter probability: {self.action_filter_prob*100 : .2f}%")
     #self.action_filter_prob *= 0.99
     self.turned = 0
-    #print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
+    print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
     #self.epsilon = self.initial_epsilon/(1 + 0.002*last_game_state['round'])
     #self.learning_rate = self.initial_learning_rate/(1 + 0.02*last_game_state['round'])
     #self.learning_rate = 0.999*self.learning_rate

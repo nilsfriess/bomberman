@@ -138,11 +138,7 @@ def should_drop_bomb(game_state):
     return len(escape_squares), escape_squares_directions
 
 '''
-Returns either 0, 5, 10 or 15:
-- 0:  Bomb is useless (does neither destroy crates nor enemies)
-- 5:  Bomb destroys crates but no enemy
-- 10: Bomb destroys enemy but no crates
-- 15: Bomb destroys both enemies and crates
+Returns a tuple (n_destroyable_coins, n_destroyable_enemies)
 '''
 def bomb_usefulness(game_state):
     field = game_state['field']
@@ -160,13 +156,5 @@ def bomb_usefulness(game_state):
         enemies.add(pos)
 
     n_destroyable_enemies = len(explosions & enemies)
-    
-    usefulness = 0
 
-    if n_destroyable_crates > 0:
-        usefulness += 5
-
-    if n_destroyable_enemies > 0:
-        usefulness += 10
-    
-    return usefulness
+    return n_destroyable_crates, n_destroyable_enemies
