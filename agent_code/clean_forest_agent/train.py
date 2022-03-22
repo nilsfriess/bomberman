@@ -22,35 +22,49 @@ def setup_training(self):
     self.killed_self = 0
     self.turned = 0
 
+    self.old_game_state = None
+    self.new_game_features = None
+
 def game_events_occurred(self, old_game_state, self_action, new_game_state, events):
     if old_game_state is None:
         return
 
-    self.old_game_state = old_game_state
+    if self.new_game_features is None:
+        # In the first step, there is no previous game.
+        # Afterwards, the current old_game_state is the new_game_state from the previous round
+        self.old_game_features = state_to_features(old_game_state)
+        self.new_game_features = state_to_features(new_game_state)
+    else:
+        self.old_game_features = self.new_game_features
+        self.new_game_features = state_to_features(new_game_state)
 
+    self.old_game_state = old_game_state
+        
     # Compute custom events and append them to `events`
     compute_custom_events(self,
                           old_game_state,
+                          self.old_game_features,
                           self_action,
                           new_game_state,
                           events)
 
     reward = reward_from_events(events)
-    self.transitions.append((old_game_state,
+    self.transitions.append((self.old_game_features,
                              self_action,
-                             new_game_state,
+                             self.new_game_features,
                              reward))
 
 def end_of_round(self, last_game_state, last_action, events):
     compute_custom_events(self,
                           self.old_game_state,
+                          self.old_game_features,
                           last_action,
                           last_game_state,
                           events)
     
-    self.transitions.append((self.old_game_state,
+    self.transitions.append((self.old_game_features,
                             last_action,
-                            last_game_state,
+                            state_to_features(last_game_state),
                             reward_from_events(events)))
 
     self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
@@ -58,7 +72,7 @@ def end_of_round(self, last_game_state, last_action, events):
 
     self.estimator.regressor.learning_rate = self.learning_rate
 
-    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.01*last_game_state['round'])
+    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.005*last_game_state['round'])
     
     total_reward = 0
     for _,_,_,reward in self.transitions:
@@ -79,7 +93,7 @@ def end_of_round(self, last_game_state, last_action, events):
         with open(f"models/model_{st}.pt", "wb") as file:
             dump(self.estimator, file)
 
-def compute_custom_events(self, old_game_state, self_action, new_game_state, events):
+def compute_custom_events(self, old_game_state, old_features, self_action, new_game_state, events):
     if self_action == 'WAIT':
         events.append(e.INVALID_ACTION)
 
@@ -87,9 +101,7 @@ def compute_custom_events(self, old_game_state, self_action, new_game_state, eve
         events.append(VALID_ACTION)
 
 
-    # Check if we walked towards target
-    
-    old_features = state_to_features(old_game_state)
+    # Check if we walked towards target        
     target_direction = old_features[:4]
     target_action = action_from_direction(target_direction)
 

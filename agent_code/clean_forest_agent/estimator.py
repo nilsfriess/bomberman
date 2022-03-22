@@ -5,7 +5,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from .base_helpers import ACTIONS
 
 from .state_action_helpers import random_action, one_hot_action
-from .state_transform import state_to_features
+from .state_transform import state_to_features, feature_name_list
 
 class GBTEstimator:
     def __init__(self, learning_rate, discount_factor):
@@ -53,13 +53,15 @@ class GBTEstimator:
     def update(self, transitions):
         if self.not_fitted:
             first_game_state = transitions[0][0]
-            first_transformed_transition, names = state_to_features(first_game_state, with_feature_list=True)
-        
-            self.feature_size = first_transformed_transition.size
+            self.feature_size = first_game_state.size
 
-            self.feature_names = names
+            self.feature_names = feature_name_list()
             
         X,y = self.qlearning(transitions)
+
+        if (X is None) or (y is None):
+            # Too few transitions or something went wrong
+            return
         
         self.regressor.fit(X, y)
         self.regressor.n_estimators += 1
@@ -74,6 +76,9 @@ class GBTEstimator:
     # 3 step TD
     def qlearning(self, transitions):
         num_trans = len(transitions)
+
+        if num_trans < 3:
+            return None, None
         
         X = np.empty((num_trans-2, self.feature_size + len(ACTIONS)))
         y = np.empty((num_trans-2,))
@@ -90,10 +95,10 @@ class GBTEstimator:
             if self.not_fitted:
                 qvalues = [0]
             else:
-                state = state_to_features(next_next_new_state)
+                state = next_next_new_state
                 qvalues = [self.regressor.predict(np.append(state, one_hot_action(a)).reshape(1,-1)) for a in ACTIONS]
 
-            state = state_to_features(now_old_state)
+            state = now_old_state
             
             X[i,:] = np.append(state, one_hot_action(now_action))
             y[i] = rewards + self.discount_factor**3 * max(qvalues)

@@ -5,14 +5,14 @@ from .base_helpers import find_next_step_to_assets, direction_from_coordinates, 
 from .bomb_helpers import bomb_usefulness, should_drop_bomb
 from .state_action_helpers import one_hot_action
 
-def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
+def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
         return np.array([])
     
     # Assemble features
 
     ''' DIRECTION TO TARGET '''
-    TOTAL_COINS = 50
+    TOTAL_COINS = 40 
     # If there are collectable coins, the target is the nearest coin.
     # If there are no collectable coins but still hidden coins, the target is the nearest crate.
     # If none of the above is true, the target is the nearest enemy.
@@ -184,20 +184,17 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
         [bomb_safety],
         [bomb_useful]
     ]
-    
-    if with_feature_list:
-        feature_names = {
-            'target direction' : 0,
-            'risk ordering' : 0,
-            'bomb allowed' : 0,
-            'bomb safety' : 0,
-            'bomb useful' : 0
-        }
-
-        for i, feature in enumerate(feature_names):
-            feature_names[feature] = len(features[i])
-
-        return np.concatenate(features), feature_names
 
     return np.concatenate(features)
+
+def feature_name_list():
+    feature_names = {
+        'target direction' : 4,
+        'risk ordering' : 5,
+        'bomb allowed' : 1,
+        'bomb safety' : 1,
+        'bomb useful' : 1
+    }
+
+    return feature_names
 
