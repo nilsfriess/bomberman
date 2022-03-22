@@ -94,24 +94,28 @@ def should_drop_bomb(game_state):
     kill us (probably, since in the 4 steps until the bomb explodes, an enemy could
     create an escape route by destroying blocking crates or the game could end).
     '''
-    field = game_state['field']
+    field = game_state['field'].copy()
     self_pos = game_state['self'][3]
 
     # Make bombs act as walls
     for bomb, _ in game_state['bombs']:
-        field[bomb] = -1    
+        field[bomb] = -1
+
+    # Make enemies act as walls
+    for (_,_,_,pos) in game_state['others']:
+        field[pos] = -1
 
     '''
     Compute the coordinates to all squares reachable within four steps.
     We also compute how many escape squares are reachable from which neighbor
     to provide the agent with a feature that represents the best escape direction.
     '''
-    x,y = self_pos
     explosion_squares = explosion_radius(field, self_pos, with_risk = False)
 
     reachable = set()
     number_of_squares = np.zeros((4,))
 
+    x,y = self_pos
     all_neighbors = [(x+1,y), (x-1,y), (x,y+1), (x,y-1)]
     #               ['RIGHT', 'LEFT', 'DOWN', 'UP']
     
@@ -145,16 +149,15 @@ def bomb_usefulness(game_state):
     self_pos = game_state['self'][3]
     
     explosions = set(explosion_radius(field, self_pos, False))
+    #print(explosions)
 
     # Destroyable crates
     crates = set(map(tuple, np.argwhere(field == 1)))
     n_destroyable_crates = len(explosions & crates) # Compute intersection
 
     # Destroyable enemies
-    enemies = set()
-    for _,_,_,pos in game_state['others']:
-        enemies.add(pos)
-
-    n_destroyable_enemies = len(explosions & enemies)
+    enemies = [pos for (_,_,_,pos) in game_state['others']]
+    
+    n_destroyable_enemies = len(explosions & set(enemies))
 
     return n_destroyable_crates, n_destroyable_enemies

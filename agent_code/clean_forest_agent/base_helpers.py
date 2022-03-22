@@ -4,7 +4,7 @@ from scipy.spatial.distance import cdist
 
 from settings import ROWS, COLS
 
-from .bomb_helpers import should_drop_bomb
+from .bomb_helpers import should_drop_bomb, explosion_radius
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 
@@ -158,5 +158,12 @@ def compute_risk_map(game_state):
                 # Reached a wall, no need to look further
                 break
             risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['DOWN']
-            
+
+    # Compute the explosion radius of bombs that could be dropped by enemies
+    for (_,_,_,pos) in game_state['others']:
+       exp_radius =  explosion_radius(game_state['field'], pos, False)
+
+       for coord in exp_radius:
+           risk_map[coord] = 1 # Not that risky but should be avoided if zero risk squares are available
+       
     return risk_map

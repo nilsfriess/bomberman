@@ -77,7 +77,6 @@ def generate_stupid_actions(game_state):
     if len(stupid_actions) < 4:
         # We found a good move
         stupid_actions.append('WAIT')
-        stupid_actions.append('BOMB')
         
         return stupid_actions
 
@@ -102,7 +101,7 @@ def generate_stupid_actions(game_state):
     if len(stupid_actions) < 4:
         stupid_actions.append('WAIT')
 
-    if current_risk > 0:
+    if current_risk > 10:
         stupid_actions.append('BOMB')
 
     # if should_drop_bomb(game_state)[0] <= 6:

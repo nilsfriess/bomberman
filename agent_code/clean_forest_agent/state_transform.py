@@ -115,8 +115,33 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
     risk_factors[3] = risk_map[(x,y-1)]
     risk_factors[4] = risk_map[(x,y)]
 
-    lowest_risk_direction = np.zeros((5,))
-    lowest_risk_direction[risk_factors == risk_factors.min()] = 1        
+    '''
+    For every direction (and our position) we now have a risk factor.
+    We will now transform this into an array such that the directions
+    with the lowest risk have the number 0, the directions with the second
+    lowest risk have the number 1, and the rest has the number 2.
+    '''
+    risk_ordering = 2*np.ones_like(risk_factors)
+
+    unique_risks = np.unique(risk_factors) # np.unique also sorts
+
+    # Set value of smallest risks to zero
+    smallest_risk = unique_risks[0]
+    indices = (risk_factors == smallest_risk).nonzero()[0]
+    risk_ordering[indices] = 0
+
+    # If there exist second smallest risks (i.e., not all directions have equal risk), set those to 1
+    if len(unique_risks) > 1:
+        second_smallest_risk = unique_risks[1] # np.unique also sorts
+        indices = (risk_factors == second_smallest_risk).nonzero()[0]
+
+        risk_ordering[indices] = 1
+    
+
+
+    # lowest_risk_direction = np.zeros((5,))
+    # lowest_risk_direction[risk_factors == risk_factors.min()] = 1  
+    
 
     # ''' 5-vector that is one if a direction is a zero-risk direction '''
     # zero_risk_direction = np.zeros_like(risk_factors)
@@ -130,21 +155,21 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
 
     if n_escape_squares == 0:
         bomb_safety = -1
-    elif n_escape_squares < 3:
+    elif n_escape_squares < 8:
         bomb_safety = 0
     else:
         bomb_safety = 1
 
     ''' USEFUL BOMB '''
     n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)
-        
+    
     if n_destroyable_crates + n_destroyable_enemies == 0:
         bomb_useful = 0
     else:
         # Either destroys crates or enemies
         if n_destroyable_enemies == 0:
             # Bomb destroys some crates, the more, the better
-            if n_destroyable_crates < 8:
+            if n_destroyable_crates < 3:
                 bomb_useful = 1
             else:
                 bomb_useful = 2
@@ -154,7 +179,7 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
     
     features = [
         target_direction.ravel(),
-        lowest_risk_direction.ravel(),
+        risk_ordering.ravel(),
         [bomb_allowed],
         [bomb_safety],
         [bomb_useful]
@@ -163,7 +188,7 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
     if with_feature_list:
         feature_names = {
             'target direction' : 0,
-            'lowest risk direction' : 0,
+            'risk ordering' : 0,
             'bomb allowed' : 0,
             'bomb safety' : 0,
             'bomb useful' : 0
