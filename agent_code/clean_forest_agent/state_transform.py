@@ -144,7 +144,7 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
         # Either destroys crates or enemies
         if n_destroyable_enemies == 0:
             # Bomb destroys some crates, the more, the better
-            if n_destroyable_crates < 3:
+            if n_destroyable_crates < 8:
                 bomb_useful = 1
             else:
                 bomb_useful = 2

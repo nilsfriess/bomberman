@@ -58,7 +58,7 @@ def end_of_round(self, last_game_state, last_action, events):
 
     self.estimator.regressor.learning_rate = self.learning_rate
 
-    self.action_filter_prob = 1 / (1 + 0.0005*last_game_state['round'])
+    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.01*last_game_state['round'])
     
     total_reward = 0
     for _,_,_,reward in self.transitions:
