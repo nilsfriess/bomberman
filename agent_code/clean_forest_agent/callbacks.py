@@ -9,13 +9,13 @@ from .base_helpers import ACTIONS
 
 def setup(self):
     self.epsilon = 0.4
-    self.learning_rate = 0.2
-    self.discount_factor = 0.8
+    self.learning_rate = 0.12
+    self.discount_factor = 0.9
 
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
 
-    self.action_filter_prob = 1
+    self.action_filter_prob = 0
     self.initial_action_filter_prop = self.action_filter_prob
     
     self.estimator = GBTEstimator(0.1, self.discount_factor)

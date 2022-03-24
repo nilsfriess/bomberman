@@ -111,13 +111,20 @@ def compute_risk_map(game_state):
     # Explosions are definitely high-risk regions
     risk_map = np.array(game_state['explosion_map'], dtype=int)
     risk_map[risk_map != 0] = 100
-    risk_map[field != 0] = 200
+    risk_map[field != 0] = 100
 
     # Below, we subtract the number of available "escape squares" from the risk.
     # Walking to a square with only one escape square is very risk, if many
     # escape squares are available, the agent has different escape paths to
     # choose from.
-    _, n_escape_squares = should_drop_bomb(game_state)
+    bombs = [pos for (pos,_) in game_state['bombs']]
+    if self_pos in bombs:
+        _, n_escape_squares = should_drop_bomb(game_state)
+    else:
+        n_escape_squares = dict()
+        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+        for d in directions:
+            n_escape_squares[d] = 0
     
     for bomb_pos, bomb_val in game_state['bombs']:
         if (abs(bomb_pos[0] - self_pos[0]) + abs(bomb_pos[1] - self_pos[1])) >= 6:

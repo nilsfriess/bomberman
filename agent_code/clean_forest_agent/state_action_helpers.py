@@ -11,7 +11,8 @@ def one_hot_action(action: str) -> np.array:
 
 def random_action(allow_bombs = True):
     if allow_bombs:
-        return np.random.choice(ACTIONS)
+        # random action but bombs have lower probability
+        return np.random.choice(ACTIONS, p=[0.18, 0.18, 0.18, 0.18, 0.18, 0.1])
     else:
         return np.random.choice(ACTIONS[:-1])
 
@@ -64,7 +65,7 @@ def generate_stupid_actions(game_state):
     If we are currently on a high-risk square, but there are neighboring zero-risk 
     squares, then all actions but the ones that lead to zero risk squares are stupid.
     '''
-    stupid_actions = ['LEFT', 'RIGHT', 'UP', 'DOWN']
+    stupid_actions = set(['LEFT', 'RIGHT', 'UP', 'DOWN'])
     if current_risk > 0:
         if left_risk == 0:
           stupid_actions.remove('LEFT')
@@ -76,7 +77,8 @@ def generate_stupid_actions(game_state):
           stupid_actions.remove('DOWN')
     if len(stupid_actions) < 4:
         # We found a good move
-        stupid_actions.append('WAIT')
+        stupid_actions.add('WAIT')
+        stupid_actions.add('BOMB')
         
         return stupid_actions
 
@@ -84,30 +86,43 @@ def generate_stupid_actions(game_state):
     If no zero-risk action has been found, stupid actions are
     those that are not risk-decreasing
     '''
-    stupid_actions = []
+    stupid_actions = set()
     if risk_map[left] > current_risk:
-        stupid_actions.append('LEFT')
+        stupid_actions.add('LEFT')
 
     if risk_map[right] > current_risk:
-        stupid_actions.append('RIGHT')
+        stupid_actions.add('RIGHT')
 
     if risk_map[up] > current_risk:
-        stupid_actions.append('UP')
+        stupid_actions.add('UP')
 
     if risk_map[down] > current_risk:
-        stupid_actions.append('DOWN')
+        stupid_actions.add('DOWN')
 
     # If there are actions that are not stupid, then waiting is stupid
     if len(stupid_actions) < 4:
-        stupid_actions.append('WAIT')
+        stupid_actions.add('WAIT')
 
     if current_risk > 10:
-        stupid_actions.append('BOMB')
+        stupid_actions.add('BOMB')
 
-    # if should_drop_bomb(game_state)[0] <= 6:
+    bombs = [pos for (pos,_) in game_state['bombs']]
+    if (x,y) in bombs:
+        _, n_escape_squares = should_drop_bomb(game_state)
+
+        # If we just dropped a bomb, then walking in a direction with no escape squares is stupid
+        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+        for d in directions:
+            if n_escape_squares[d] <= 1:
+                stupid_actions.add(d)
+        
+    # if (should_drop_bomb(game_state)[0] > 2) and (should_drop_bomb(game_state)[0] <= 8):
     #     # Dropping a bomb is not safe
     #     stupid_actions.append('BOMB')
-    
+
+    if len(stupid_actions) == 6:
+        stupid_actions = []
+        
     return stupid_actions
 
 '''

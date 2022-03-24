@@ -16,11 +16,9 @@ def setup_training(self):
 
     # Setup counters
     self.invalid = 0
-    self.moved_away = 0
-    self.avoided_bomb = 0
     self.bombs = 0
     self.killed_self = 0
-    self.turned = 0
+    self.useless_bombs = 0
 
     self.old_game_state = None
     self.new_game_features = None
@@ -66,26 +64,26 @@ def end_of_round(self, last_game_state, last_action, events):
                             last_action,
                             state_to_features(last_game_state),
                             reward_from_events(events)))
-
-    self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
-    self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
-
-    self.estimator.regressor.learning_rate = self.learning_rate
-
-    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.005*last_game_state['round'])
     
     total_reward = 0
     for _,_,_,reward in self.transitions:
         total_reward += reward
 
-    print_progress(self, last_game_state, last_action, events)
-    print(f"Total reward {total_reward}")
+    print_progress(self, last_game_state, last_action, events, total_reward)
     
     # Update the gb tree and throw away the transitions
-    if len(self.transitions) > 1:
+    if len(self.transitions) > 50:
         # Only train with sufficiently many transitions
         self.estimator.update(self.transitions)
-    self.transitions = []
+
+        # self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
+        self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
+
+        self.estimator.regressor.learning_rate = self.learning_rate
+
+        
+        self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0001*last_game_state['round'])
+        self.transitions = []
 
     if last_game_state['round'] % 50 == 0:
         dt = datetime.datetime.now()
@@ -115,18 +113,6 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
     new_self_pos = new_game_state['self'][3]
     explosion_map = new_game_state['explosion_map']
     bombs = old_game_state['bombs']
-
-    # Check if we increased the distance to a bomb if it is near us
-    for (bomb_pos,_) in bombs:
-        # Are we in the same row or column as the bomb?
-        if (bomb_pos[0] == old_self_pos[0]) or (bomb_pos[1] == old_self_pos[1]):
-            # Are we near the bomb?
-            if cdist([bomb_pos], [old_self_pos], 'cityblock') < 5:
-                # Did we move towards the bomb?
-                if cdist([bomb_pos], [new_self_pos], 'cityblock') <= cdist([bomb_pos], [old_self_pos], 'cityblock'):
-                    events.append(MOVED_TOWARDS_BOMB)
-                else:
-                    events.append(MOVED_AWAY_FROM_BOMB)
                 
     if (self_action == 'BOMB') and (e.INVALID_ACTION not in events):
         # Check if bomb was dropped in corner which is probably a stupid idea
@@ -190,37 +176,32 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
 
     if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):
         self.invalid += 1
-
-    if MOVED_AWAY_FROM_BOMB in events:
-        self.moved_away += 1
         
     if self_action == 'BOMB' and (e.INVALID_ACTION not in events):
         self.bombs += 1
 
-    if ESCAPED_BOMB_BY_TURNING in events:
-        self.turned += 1
+    if USELESS_BOMB in events:
+        self.useless_bombs += 1
 
-def print_progress(self, last_game_state, last_action, events):
+def print_progress(self, last_game_state, last_action, events, total_reward):
     if e.KILLED_SELF in events:
         self.killed_self += 1
 
-    print(f"Survived {last_game_state['step']} steps")
-    print(f"Coins collected: {last_game_state['self'][1]}")
-    print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
+    summary = ""
+        
+    summary += f"Survived {last_game_state['step']} steps (killed itself: {self.killed_self > 0})\n"
+    summary += f"Total reward: {total_reward}\n"
+    summary += f"Total points: {last_game_state['self'][1]}\n"
+    summary += f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%\n"
+    if self.bombs > 0:
+        summary += f"Planted {self.bombs} bombs, {self.useless_bombs / self.bombs * 100:.0f}% useless\n"
+    else:
+        summary += "Planted 0 bombs\n"
+    summary += f"Parameters: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}, filter = {self.action_filter_prob*100 :.2f}%"
+    
     self.invalid = 0
-    print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
     self.bombs = 0
     self.killed_self = 0
-    print(f"Moved away from bomb {self.moved_away} times, avoided {self.avoided_bomb} times")
-    self.avoided_bomb = 0
-    self.moved_away = 0
-    print(f"Turned after bomb {self.turned} times")
-    print(f"Action filter probability: {self.action_filter_prob*100 : .2f}%")
-    #self.action_filter_prob *= 0.99
-    self.turned = 0
-    print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
-    #self.epsilon = self.initial_epsilon/(1 + 0.002*last_game_state['round'])
-    #self.learning_rate = self.initial_learning_rate/(1 + 0.02*last_game_state['round'])
-    #self.learning_rate = 0.999*self.learning_rate
-    #self.QEstimator.update_learning_rate(self.learning_rate)
-    print()
+    self.useless_bombs = 0
+    
+    print(summary)

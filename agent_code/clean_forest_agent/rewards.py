@@ -46,25 +46,25 @@ TOOK_LOWEST_RISK_DIRECTION = 'TOOK_LOWEST_RISK_DIRECTION'
 
 def reward_from_events(events):
     game_rewards = {
-        e.KILLED_OPPONENT: 200,
-        e.COIN_COLLECTED: 100,
+        # e.KILLED_OPPONENT: 200,
+        e.COIN_COLLECTED: 50,
         e.INVALID_ACTION: -80,
-        VALID_ACTION: -5,
+        VALID_ACTION: -5, # Valid actions are only good if the serve a purpose
         BOMB_IN_CORNER: -20,
-        USELESS_BOMB: -150,
-        USEFUL_BOMB: 10,
-        VERY_USEFUL_BOMB: 25,
+        USELESS_BOMB: -80,
+        USEFUL_BOMB: 50,
+        VERY_USEFUL_BOMB: 60,
         EXTREMELY_USEFUL_BOMB: 80,
         WALKED_TOWARDS_TARGET: 50,
         WALKED_AWAY_FROM_TARGET: -50,
         DECREASED_RISK: 60, # Not taking the correct direction but decreasing risk is good
         TOOK_LOWEST_RISK_DIRECTION: 30,
         #ESCAPED_RISK: 40,
-        INCREASED_RISK: -150,
+        INCREASED_RISK: -60,
         DROPPED_SUICIDE_BOMB: -500,
-        DROPPED_UNSAFE_BOMB: -200,
-        DROPPED_SAFE_BOMB: -10,
-        e.KILLED_SELF: -200
+        DROPPED_UNSAFE_BOMB: -50,
+        DROPPED_SAFE_BOMB: 10,
+        e.KILLED_SELF: -400
     }
     reward_sum = 0
     for event in events:
