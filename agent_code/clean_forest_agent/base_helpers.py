@@ -99,72 +99,30 @@ def action_from_direction(direction):
     return 'WAIT'
 
 def compute_risk_map(game_state):
-    '''
-    Compute a 'risk factor' for each tile of the game map.
-    For instance, if a bomb is about to explode and a tile
-    is within the explosion radius, the tile has a high risk.
-    Free tiles or tiles with coins have low risk.
-    '''
-    field = game_state['field']
+    field = game_state['field'].copy() # We change the field below, need to create a copy
     self_pos = game_state['self'][3]
     
-    # Explosions are definitely high-risk regions
-    risk_map = np.array(game_state['explosion_map'], dtype=int)
-    risk_map[risk_map != 0] = 100
-    risk_map[field != 0] = 100
-
-    # Below, we subtract the number of available "escape squares" from the risk.
-    # Walking to a square with only one escape square is very risk, if many
-    # escape squares are available, the agent has different escape paths to
-    # choose from.
-    bombs = [pos for (pos,_) in game_state['bombs']]
-    if self_pos in bombs:
-        _, n_escape_squares = should_drop_bomb(game_state)
-    else:
-        n_escape_squares = dict()
-        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
-        for d in directions:
-            n_escape_squares[d] = 0
+    risk_map = np.zeros_like(field)
     
-    for bomb_pos, bomb_val in game_state['bombs']:
-        if (abs(bomb_pos[0] - self_pos[0]) + abs(bomb_pos[1] - self_pos[1])) >= 6:
-            # Bomb not near us, check next bomb
-            continue
+    # # Squares that are deadly now have high risk
+    # deadly_map = deadly_in(game_state)
+    # risk_map[deadly_map == 0] = 90
+    
+    # # Squares that are deadly in the next step are also risky
+    # risk_map[deadly_map == 1] = 80
 
-        bomb_risk = 100 - 10*bomb_val   # Bombs are riskier, the lower their timer is
-        risk_map[bomb_pos] = 100
-        
-        for k in [-1,-2,-3]: # Left of bomb
-            coord_on_field = (bomb_pos[0] + k, bomb_pos[1])
+    #  # Squares that are deadly in the step after the next are a bit less risky
+    # risk_map[deadly_map == 2] = 70
+    
+    # Squares with bombs have very high risk
+    bombs = [pos for (pos, val) in game_state['bombs']]
+    for bomb in bombs:
+        explosions = explosion_radius(game_state['field'], bomb)
 
-            if field[coord_on_field] == -1:
-                # Reached a wall, no need to look further
-                break
-            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['LEFT']
+        for (square, risk) in explosions:
+            risk_map[square] = risk
 
-        for k in [1,2,3]: # Right of bomb
-            coord_on_field = (bomb_pos[0] + k, bomb_pos[1])
-
-            if field[coord_on_field] == -1:
-                # Reached a wall, no need to look further
-                break
-            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['RIGHT']
-
-        for k in [-1,-2,-3]: # Above bomb
-            coord_on_field = (bomb_pos[0], bomb_pos[1]+k)
-
-            if field[coord_on_field] == -1:
-                # Reached a wall, no need to look further
-                break
-            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['UP']
-
-        for k in [1,2,3]: # Below bomb
-            coord_on_field = (bomb_pos[0], bomb_pos[1]+k)
-
-            if field[coord_on_field] == -1:
-                # Reached a wall, no need to look further
-                break
-            risk_map[coord_on_field] = bomb_risk - abs(k) - n_escape_squares['DOWN']
+        risk_map[bomb] = 5
 
     # Compute the explosion radius of bombs that could be dropped by enemies
     for (_,_,_,pos) in game_state['others']:
@@ -172,5 +130,39 @@ def compute_risk_map(game_state):
 
        for coord in exp_radius:
            risk_map[coord] = 1 # Not that risky but should be avoided if zero risk squares are available
-       
+
+     # Blocked tiles have large risk since they lead to invalid actions
+    risk_map[field != 0] = 10
+           
     return risk_map
+
+
+'''
+For every square on the game state, compute the number of time steps
+until standing on that square will lead to the death of the agent.
+A value of 0 means that the square is now deadly (for instance, explosions
+are deadly). A value of 1 means that the square will be deadly in the
+next time step. A value of -1 means that the square is not deadly in the
+next four time steps.
+'''
+def deadly_in(game_state):
+    field = game_state['field']
+    deadly_map = -1*np.ones_like(field)
+
+    # For every bomb, compute the explosion radius and set the value there to the bomb's timer
+    bombs = game_state['bombs']
+    for pos, value in bombs:
+        explosion = explosion_radius(field, pos, False)
+
+        for square in explosion:
+            deadly_map[square] = value + 1
+
+    return deadly_map
+
+def deadly_now(game_state):
+    deadly_map = np.zeros_like(game_state['field'])
+    deadly_map[ game_state['explosion_map'] > 0] = 1
+
+    return deadly_map
+    
+

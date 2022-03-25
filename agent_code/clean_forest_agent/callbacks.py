@@ -33,7 +33,7 @@ def setup(self):
 
 def act(self, game_state):
     if np.random.uniform() < 1 - self.action_filter_prob: # Only filter sometimes
-        stupid_actions = []
+        stupid_actions = set()
     else:
         stupid_actions = generate_stupid_actions(game_state)
 
@@ -42,7 +42,7 @@ def act(self, game_state):
     stupid_actions = suicidal_actions | stupid_actions
 
     if len(stupid_actions) == 6:
-        stupid_actions = []
+        stupid_actions = set()
     
     if np.random.uniform() < 1-self.epsilon:
         action = self.estimator.estimate(game_state)

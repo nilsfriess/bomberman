@@ -82,7 +82,7 @@ def end_of_round(self, last_game_state, last_action, events):
         self.estimator.regressor.learning_rate = self.learning_rate
 
         
-        self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0001*last_game_state['round'])
+        self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.001*last_game_state['round'])
         self.transitions = []
 
     if last_game_state['round'] % 50 == 0:
@@ -169,11 +169,26 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
     risk_factors[2] = risk_map[(x,y+1)]
     risk_factors[3] = risk_map[(x,y-1)]
     risk_factors[4] = risk_map[(x,y)]
-
+    
     if (risk_map[old_self_pos] > 0) and (risk_map[new_self_pos] == np.amin(risk_factors)):
         # Took direction with lowest risk
         events.append(TOOK_LOWEST_RISK_DIRECTION)
 
+    ''' Check if we made something suicidal '''
+    ''' Is dropping a bomb suicidal '''
+    escape_squares, escape_squares_directions = should_drop_bomb(old_game_state)
+
+    if (escape_squares == 0) and (self_action == 'BOMB'):
+        events.append(DROPPED_SUICIDE_BOMB)
+
+    ''' Is walking in any of the directions suicidal '''
+    bombs = [pos for (pos,_) in old_game_state['bombs']]
+    if old_self_pos in bombs:
+        for direction in escape_squares_directions:
+            if (escape_squares_directions[direction] == 0) and (self_action == direction):
+                events.append(WALKED_INTO_SUICIDE_DIRECTION)
+
+        
     if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):
         self.invalid += 1
         
