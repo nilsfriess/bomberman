@@ -16,7 +16,7 @@ def random_action(allow_bombs = True):
     else:
         return np.random.choice(ACTIONS[:-1])
 
-def generate_suicidal_actions(game_state):
+def generate_suicidal_actions(game_state, look_ahead = False):
     explosion_map = game_state['explosion_map']
 
     (_,_,_,(x,y)) = game_state['self']
@@ -37,17 +37,18 @@ def generate_suicidal_actions(game_state):
     if explosion_map[down] > 0:
         actions.add('DOWN')
 
-    total_escape_squares, n_escape_squares = should_drop_bomb(game_state)
-    if total_escape_squares == 0:
-        actions.add('BOMB')
+    if look_ahead:
+        total_escape_squares, n_escape_squares = should_drop_bomb(game_state)
+        if total_escape_squares == 0:
+            actions.add('BOMB')
 
-    bombs = [pos for (pos,_) in game_state['bombs']]
-    if (x,y) in bombs:
-        # If we just dropped a bomb, then walking in a direction with no escape squares is suicidal
-        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
-        for d in directions:
-            if n_escape_squares[d] == 0:
-                actions.add(d)
+        bombs = [pos for (pos,_) in game_state['bombs']]
+        if (x,y) in bombs:
+            # If we just dropped a bomb, then walking in a direction with no escape squares is suicidal
+            directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+            for d in directions:
+                if n_escape_squares[d] == 0:
+                    actions.add(d)
 
     return actions
 
@@ -67,11 +68,11 @@ def generate_stupid_actions(game_state):
     up_risk = risk_map[up]
     down_risk = risk_map[down]
 
-    # print("Risks:")
-    # print(left_risk)
-    # print(right_risk)
-    # print(up_risk)
-    # print(down_risk)
+    print("Risks:")
+    print(left_risk)
+    print(right_risk)
+    print(up_risk)
+    print(down_risk)
     
     '''
     If we are currently on a high-risk square, but there are neighboring zero-risk 
@@ -115,12 +116,17 @@ def generate_stupid_actions(game_state):
     if len(stupid_actions) < 4:
         stupid_actions.add('WAIT')
 
-    if current_risk > 10:
+    total_escape_squares, n_escape_squares = should_drop_bomb(game_state)
+    if total_escape_squares == 0:
         stupid_actions.add('BOMB')
-        
-    # if (should_drop_bomb(game_state)[0] > 2) and (should_drop_bomb(game_state)[0] <= 8):
-    #     # Dropping a bomb is not safe
-    #     stupid_actions.append('BOMB')
+
+    bombs = [pos for (pos,_) in game_state['bombs']]
+    if (x,y) in bombs:
+        # If we just dropped a bomb, then walking in a direction with no escape squares is suicidal
+        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+        for d in directions:
+            if n_escape_squares[d] == 0:
+                stupid_actions.add(d)
         
     return stupid_actions
 

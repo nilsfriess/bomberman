@@ -20,7 +20,7 @@ def setup(self):
     
     self.estimator = GBTEstimator(0.1, self.discount_factor)
 
-    if os.path.isfile("models/model.pt"):
+    if False and os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
