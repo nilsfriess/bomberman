@@ -80,13 +80,25 @@ def get_step_neighbourhood(x, y, n_steps):
     return neighb
 
 # returns
-#  1 if constrained by up down
-#  2 if constrained by left right
+#  2 if constrained by up down
+#  1 if constrained by left right
 #  0 if not constrained
 def get_is_constrained(game_state) -> int:
-
-    return 0
-
+    (x,y) = game_state["self"][3]
+    if x % 2 == 1:
+        if y % 2 == 1:
+            # e.g. (1,1) i.e. a corner
+            return 0
+        else:
+            # e.g. (1,2) i.e. between walls at (0,2) and (2,2)
+            return 1
+    else:
+        if y % 2 == 1:
+            # e.g. (2,1) i.e. between walls at (2,0) and (2,2)
+            return 2
+        else:
+            # should not happen, generate error
+            assert not (x%2==0 and y%2==0), "position should be blocked by wall but is not"
 
 
 

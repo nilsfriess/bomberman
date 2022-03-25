@@ -2,23 +2,11 @@ import numpy as np
 import os
 import pickle
 
-from settings import SCENARIOS, ROWS, COLS
+from .helpers_leif_local import load_model, death_implying_actions, valid_actions
 
-from time import sleep
-
-from qfunction import QEstimator
-from base_helpers import ACTIONS, \
-    find_next_step_to_assets,\
-    direction_from_coordinates,\
-    cityblock_dist
-from action_filter import action_is_stupid
-
-from helpers_leif import load_model, death_implying_actions, valid_actions
+from .local_qfunction import SubspaceQEstimator
 
 from .state_transform import state_to_features, train_act
-#from .state_transform_nils import state_to_features, train_act
-
-coin_count = SCENARIOS['coin-heaven']['COIN_COUNT']
 
 def setup(self):
     """
@@ -40,8 +28,13 @@ def setup(self):
     self.initial_epsilon = 0.1
     self.epsilon = self.initial_epsilon
 
-    self.QEstimator = QEstimator(learning_rate = self.initial_learning_rate,
-                                 discount_factor = 0.9)
+    self.QEstimator = SubspaceQEstimator(num_hard_sep_states = 3,
+                                         learning_rate = self.initial_learning_rate,
+                                         discount_factor = 0.9)
+
+    # self.QEstimator = QEstimator(num_hard_sep_states = 3,
+    #                              learning_rate = self.initial_learning_rate,
+    #                              discount_factor = 0.9)
 
     # check whether the stored model params can be used with state_to_features. If so, loads the .regressor member of the QEstimator class, otherwise overwrites the parameters.
     # This has the advantage that parameters of the QEstimator class can be changed during training and that the model.pt file has not to be deleted when the features are changed.

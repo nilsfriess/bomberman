@@ -3,8 +3,10 @@ from plot import RealtimePlot, Recorder
 
 import events as e
 
-from .state_transform import state_to_features
-from helpers_leif import store_model
+from .helpers_leif_local import store_model
+
+from .state_transform import state_to_features, train_act
+
 
 import numpy as np
 
@@ -42,7 +44,7 @@ def setup_custom_vars(self):
     self.killed_self = 0
     self.waited = 0
     self.bomb_dodged = 0
-    self.initial_show_dodging = 0.2
+    self.initial_show_dodging = 0.0
     self.show_dodging = 0.0
     self.count_show = 0
     self.crates = 0
@@ -51,7 +53,7 @@ def setup_custom_vars(self):
     #self.plotter_bomb = RealtimePlot("Bombs", "bombs", loglog = False)
     #self.recorder_coin = Recorder("Coins_only_depth8", ["coins", "steps needed"], 5)
 
-    self.QEstimator.n_steps = 2
+    self.QEstimator.steps = 3
 
 def reward_from_events(events: List[str]) -> int:
     # if (DID_MOVE_AWAY_FROM_BOMB in events) or\
@@ -62,11 +64,12 @@ def reward_from_events(events: List[str]) -> int:
 
     game_rewards = {
         e.KILLED_OPPONENT: 500,
-        #e.COIN_COLLECTED: 300,
+        e.COIN_COLLECTED: 200,
         #e.CRATE_DESTROYED: 500,
         e.KILLED_SELF: -1000,
-        VALID_ACTION: -10,
+        VALID_ACTION: -5,
         e.WAITED: -5,
+        e.INVALID_ACTION: -20,
         #MOVED_AWAY_FROM_BOMB: 50,
         #MOVED_NOT_AWAY_FROM_BOMB: -20,
         # MOVED_TOWARDS_COIN: 1,
