@@ -2,7 +2,7 @@ import numpy as np
 
 from settings import ROWS,COLS
 
-from .helpers_leif_local import *
+from .helpers_local import *
 
 from time import sleep
 

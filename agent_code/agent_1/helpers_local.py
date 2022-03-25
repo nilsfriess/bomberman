@@ -2,8 +2,7 @@ import numpy as np
 
 from settings import ROWS, COLS
 
-from base_helpers import *
-from qfunction import *
+from .base_helpers import *
 from .local_qfunction import *
 
 import os

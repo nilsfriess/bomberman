@@ -1,0 +1,6 @@
+pyastar2d
+pygame
+tqdm
+numpy
+scipy
+sklearn

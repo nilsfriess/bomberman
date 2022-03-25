@@ -2,7 +2,7 @@ import numpy as np
 import os
 import pickle
 
-from .helpers_leif_local import load_model, death_implying_actions, valid_actions
+from .helpers_local import load_model, death_implying_actions, valid_actions
 
 from .local_qfunction import SubspaceQEstimator
 

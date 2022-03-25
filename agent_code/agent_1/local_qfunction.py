@@ -3,7 +3,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from collections import defaultdict
 
-from base_helpers import ACTIONS, one_hot_action
+from .base_helpers import ACTIONS, one_hot_action
 
 """
 Class allowing to use several regression forest to estimate the Q-function. Expects a feature vector where the zeroth entry is an index running from 0 to self.num_hard_sep_states - 1, indicating a characteristic of a state that is supposed to trigger a hard separation of these state-subspaces by using a different regression forest for each of the subspaces. (instead of differentiating them by a feature that has to be categorized by one regressor)
