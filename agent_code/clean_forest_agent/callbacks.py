@@ -15,7 +15,7 @@ def setup(self):
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
 
-    self.action_filter_prob = 0
+    self.action_filter_prob = 1
     self.initial_action_filter_prop = self.action_filter_prob
     
     self.estimator = GBTEstimator(0.1, self.discount_factor)
@@ -39,7 +39,10 @@ def act(self, game_state):
 
     suicidal_actions = generate_suicidal_actions(game_state)
 
-    stupid_actions = suicidal_actions | set(stupid_actions)
+    stupid_actions = suicidal_actions | stupid_actions
+
+    if len(stupid_actions) == 6:
+        stupid_actions = []
     
     if np.random.uniform() < 1-self.epsilon:
         action = self.estimator.estimate(game_state)

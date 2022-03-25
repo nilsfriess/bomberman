@@ -61,9 +61,9 @@ def reward_from_events(events):
         TOOK_LOWEST_RISK_DIRECTION: 30,
         #ESCAPED_RISK: 40,
         INCREASED_RISK: -60,
-        DROPPED_SUICIDE_BOMB: -500,
-        DROPPED_UNSAFE_BOMB: -50,
-        DROPPED_SAFE_BOMB: 10,
+        #DROPPED_SUICIDE_BOMB: -500,
+        #DROPPED_UNSAFE_BOMB: -50,
+        #DROPPED_SAFE_BOMB: 10,
         e.KILLED_SELF: -400
     }
     reward_sum = 0

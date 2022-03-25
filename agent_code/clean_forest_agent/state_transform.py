@@ -12,7 +12,7 @@ def state_to_features(game_state: dict) -> np.array:
     # Assemble features
 
     ''' DIRECTION TO TARGET '''
-    TOTAL_COINS = 60 
+    TOTAL_COINS = 30
     # If there are collectable coins, the target is the nearest coin.
     # If there are no collectable coins but still hidden coins, the target is the nearest crate.
     # If none of the above is true, the target is the nearest enemy.
@@ -112,59 +112,20 @@ def state_to_features(game_state: dict) -> np.array:
                 
     ''' 5-vector of risks around us and at our position '''
     risk_map = compute_risk_map(game_state)
-    risk_factors = np.zeros((5,))
-
     x,y = self_pos
-    risk_factors[0] = risk_map[(x+1,y)]
-    risk_factors[1] = risk_map[(x-1,y)]
-    risk_factors[2] = risk_map[(x,y+1)]
-    risk_factors[3] = risk_map[(x,y-1)]
-    risk_factors[4] = risk_map[(x,y)]
-
-    # '''
-    # For every direction (and our position) we now have a risk factor.
-    # We will now transform this into an array such that the directions
-    # with the lowest risk have the number 0, the directions with the second
-    # lowest risk have the number 1, and the rest has the number 2.
-    # '''
-    # risk_ordering = 2*np.ones_like(risk_factors)
-
-    # unique_risks = np.unique(risk_factors) # np.unique also sorts
-
-    # # Set value of smallest risks to zero
-    # smallest_risk = unique_risks[0]
-    # indices = (risk_factors == smallest_risk).nonzero()[0]
-    # risk_ordering[indices] = 0
-
-    # # If there exist second smallest risks (i.e., not all directions have equal risk), set those to 1
-    # if len(unique_risks) > 1:
-    #     second_smallest_risk = unique_risks[1] # np.unique also sorts
-    #     indices = (risk_factors == second_smallest_risk).nonzero()[0]
-
-    #     risk_ordering[indices] = 1
+    own_risk = risk_map[(x,y)]
     
+    risk_differences = np.zeros((4,))
 
+    sign = lambda x : -1 if x <= 0 else 1
 
-    lowest_risk_direction = np.zeros((5,))
-    lowest_risk_direction[risk_factors == risk_factors.min()] = 1  
-    
-
-    # ''' 5-vector that is one if a direction is a zero-risk direction '''
-    # zero_risk_direction = np.zeros_like(risk_factors)
-    # zero_risk_direction[risk_factors == 0] = 1
+    risk_differences[0] = sign(own_risk - risk_map[(x+1,y)])
+    risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
+    risk_differences[2] = sign(own_risk - risk_map[(x,y+1)])
+    risk_differences[3] = sign(own_risk - risk_map[(x,y-1)])
 
     ''' Is dropping a bomb a valid move '''
     bomb_allowed = int(game_state['self'][2])
-
-    ''' Safety of dropping bomb here '''
-    n_escape_squares, _ = should_drop_bomb(game_state)
-
-    if n_escape_squares == 0:
-        bomb_safety = -1
-    elif n_escape_squares < 8:
-        bomb_safety = 0
-    else:
-        bomb_safety = 1
 
     ''' USEFUL BOMB '''
     n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)
@@ -185,10 +146,10 @@ def state_to_features(game_state: dict) -> np.array:
     
     features = [
         target_direction.ravel(),
-        risk_factors.ravel(),
-        lowest_risk_direction.ravel(),
+        [own_risk],
+        risk_differences.ravel(),
         [bomb_allowed],
-        [bomb_safety],
+        # [bomb_safety],
         [bomb_useful]
     ]
 
@@ -197,10 +158,9 @@ def state_to_features(game_state: dict) -> np.array:
 def feature_name_list():
     feature_names = {
         'target direction' : 4,
-        'risk factors' : 5,
-        'lowest risk' : 5,
+        'own risk' : 1,
+        'risk differences' : 4,
         'bomb allowed' : 1,
-        'bomb safety' : 1,
         'bomb useful' : 1
     }
 

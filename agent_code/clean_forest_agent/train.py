@@ -136,21 +136,21 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
                 # Bomb tries to kill enemy
                 events.append(EXTREMELY_USEFUL_BOMB)
 
-        n_escape_squares, _ = should_drop_bomb(old_game_state)
+        # n_escape_squares, _ = should_drop_bomb(old_game_state)
 
-        if n_escape_squares == 0:
-            bomb_safety = -1
-        elif n_escape_squares < 8:
-            bomb_safety = 0
-        else:
-            bomb_safety = 1
+        # if n_escape_squares == 0:
+        #     bomb_safety = -1
+        # elif n_escape_squares < 8:
+        #     bomb_safety = 0
+        # else:
+        #     bomb_safety = 1
 
-        if bomb_safety == -1:
-            events.append(DROPPED_SUICIDE_BOMB)
-        elif bomb_safety == 0:
-            events.append(DROPPED_UNSAFE_BOMB)
-        else:
-            events.append(DROPPED_SAFE_BOMB)
+        # if bomb_safety == -1:
+        #     events.append(DROPPED_SUICIDE_BOMB)
+        # elif bomb_safety == 0:
+        #     events.append(DROPPED_UNSAFE_BOMB)
+        # else:
+        #     events.append(DROPPED_SAFE_BOMB)
             
     # Check if we went in a direction with lower risk
     risk_map = compute_risk_map(old_game_state)
