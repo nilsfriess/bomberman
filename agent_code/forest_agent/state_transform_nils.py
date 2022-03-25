@@ -18,9 +18,9 @@ def state_to_features(game_state: dict) -> np.array:
     ''' OWN POSITION '''
     (_,_,_,self_pos) = game_state['self']
     field = np.array(game_state['field'])
-    own_position = np.zeros((field.shape[0], field.shape[1]))
-    own_position[self_pos] = 1
-    #own_position = np.array(self_pos)
+    # own_position = np.zeros((field.shape[0], field.shape[1]))
+    # own_position[self_pos] = 1
+    own_position = np.array(self_pos)
 
     ''' DIRECTION TO CLOSEST COIN '''
     # Find 5 closest coins, where `close` is w.r.t. the cityblock distance
@@ -156,7 +156,7 @@ def random_action(allow_bombs = True):
         return np.random.choice(ACTIONS[:-1])
 
 def train_act(self, game_state:dict) -> str:
-    filter_prob = 0.9
+    filter_prob = 0.8
 
     # Compute stupid actions
     stupid_actions = []
@@ -175,7 +175,11 @@ def train_act(self, game_state:dict) -> str:
 
     if np.random.uniform() < 1-self.epsilon:
         '''
-        Check which quadrant we are in.
+        Check which quadrant of game_state['field'] we are in.
+        Note that this is *not* the same quadrant as on the actual
+        game field rendered in the GUI (upper right and lower left
+        are swapped, since the GUI game field is a transposed version
+        of the game_state['field']).
         '''
         (_,_,_,(x,y)) = game_state['self']
         if (x <= 8) and (y <= 8):
@@ -183,16 +187,19 @@ def train_act(self, game_state:dict) -> str:
             quad = 0
         elif (x > 8) and (y <= 8):
             # upper right
-            quad = 3
+            quad = 1
         elif (x > 8) and (y > 8):
             # lower right
             quad = 2
         elif (x <= 8) and (y > 8):
-            quad = 1
+            quad = 3
 
         game_state = rotate_game_state(game_state, quad)
 
-#        print(f"Position after rotation {game_state['self'][3]}")
+        #  Sanity check: make sure that after the rotation, we are in the upper left quarant
+        assert(game_state['self'][3][0] <= 8)
+        assert(game_state['self'][3][1] <= 8)
+        #print(f"Position after rotation {game_state['self'][3]}")
 
         state = state_to_features(game_state)
         av = np.array([self.QEstimator.estimate(state, action) for action in ACTIONS])
@@ -200,13 +207,13 @@ def train_act(self, game_state:dict) -> str:
         action = ACTIONS[np.argmax(av)]
         action = rotate_action(action, quad)
 
-        # while action in stupid_actions:
-        #     action = random_action()
+        while action in stupid_actions:
+            action = random_action()
 
     else:
-        action = random_action(False)
-        # while action in stupid_actions:
-        #     action = random_action()
+        action = random_action()
+        while action in stupid_actions:
+            action = random_action()
 
     # print(f"Chose: {action}")
     return action
