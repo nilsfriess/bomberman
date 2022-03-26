@@ -209,19 +209,29 @@ def rotate_game_state(game_state: dict):
 def rotate_action(action, n):
     if n == 0:
         return action
-    
-    if n < 0:
-        return rotate_action(action, 4-n)
 
     if (action == 'WAIT') or (action == 'BOMB'):
-        rot_action = action
-    elif action == 'UP':
-        rot_action = 'LEFT'
-    elif action == 'DOWN':
-        rot_action = 'RIGHT'
-    elif action == 'LEFT':
-        rot_action = 'DOWN'
-    elif action == 'RIGHT':
-        rot_action = 'UP'
+            return action
+    
+    if n > 0:
+        for k in range(n):
+            if action == 'UP':
+                action = 'LEFT'
+            elif action == 'DOWN':
+                action = 'RIGHT'
+            elif action == 'LEFT':
+                action = 'DOWN'
+            elif action == 'RIGHT':
+                action = 'UP'
+    else:
+        for k in range(-n):
+            if action == 'UP':
+                action = 'RIGHT'
+            elif action == 'DOWN':
+                action = 'LEFT'
+            elif action == 'LEFT':
+                action = 'UP'
+            elif action == 'RIGHT':
+                action = 'DOWN'
 
-    return rotate_action(rot_action, n-1)
+    return action

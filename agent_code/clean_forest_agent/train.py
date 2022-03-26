@@ -123,16 +123,7 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
         if n_destroyable_crates + n_destroyable_enemies == 0:
             events.append(USELESS_BOMB)
         else:
-            # Either destroys crates or enemies
-            if n_destroyable_enemies == 0:
-                # Bomb destroys some crates, the more, the better
-                if n_destroyable_crates < 3:
-                    events.append(USEFUL_BOMB)
-                else:
-                    events.append(VERY_USEFUL_BOMB)
-            else:
-                # Bomb tries to kill enemy
-                events.append(EXTREMELY_USEFUL_BOMB)
+            events.append(USEFUL_BOMB)
 
         # n_escape_squares, _ = should_drop_bomb(old_game_state)
 
@@ -157,18 +148,14 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
     
     risk_differences = np.zeros((4,))
 
-    def sign(x):
-        if x == 0:
-            return 0
-        else:
-            return -1 if x < 0 else 1
+    sign = lambda x : 0 if x < 0 else 1
 
-    risk_differences[0] = sign(own_risk - risk_map[(x+1,y)]) #right
-    risk_differences[1] = sign(own_risk - risk_map[(x-1,y)]) #left
-    risk_differences[2] = sign(own_risk - risk_map[(x,y+1)]) #down
-    risk_differences[3] = sign(own_risk - risk_map[(x,y-1)]) #up
+    risk_differences[0] = sign(own_risk - risk_map[(x,y-1)])
+    risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
+    risk_differences[2] = sign(own_risk - risk_map[(x,y+1)])
+    risk_differences[3] = sign(own_risk - risk_map[(x+1,y)])
 
-    directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+    directions = ['UP', 'LEFT', 'DOWN', 'RIGHT']
 
     if own_risk > 0:
         if np.any(risk_differences != -1): # If there is a direction with lower risk

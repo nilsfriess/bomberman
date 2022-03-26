@@ -70,16 +70,17 @@ def direction_from_coordinates(self_pos, asset_pos):
     if not np.array_equal(self_pos, asset_pos):
         dist = self_pos - asset_pos
 
-        if dist[0] == 0:
-            if dist[1] == 1:
-                direction[0] = 1
-            else:
-                direction[1] = 1
-        else:
-            if dist[0] == 1:
-                direction[2] = 1
-            else:
-                direction[3] = 1
+        if (dist[0] == 0) and (dist[1] == 1):
+            direction[0] = 1 # UP
+
+        if (dist[1] == 0) and (dist[0] == 1):
+            direction[1] = 1 # LEFT
+            
+        if (dist[0] == 0) and (dist[1] == -1):
+            direction[2] = 1 # DOWN
+
+        if (dist[1] == 0) and (dist[0] == -1):
+            direction[3] = 1 # RIGHT
 
     return direction
 
@@ -88,10 +89,10 @@ def action_from_direction(direction):
         return 'UP'
 
     if direction[1] == 1:
-        return 'DOWN'
+        return 'LEFT'
 
     if direction[2] == 1:
-        return 'LEFT'
+        return 'DOWN'
 
     if direction[3] == 1:
         return 'RIGHT'

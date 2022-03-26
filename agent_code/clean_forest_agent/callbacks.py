@@ -5,6 +5,8 @@ import numpy as np
 
 #from .estimator import GBTEstimator
 from .qtable import QTableEstimator
+#from .linear_estimator import LinearSGDEstimator
+
 from .state_action_helpers import generate_stupid_actions, random_action, generate_suicidal_actions
 from .base_helpers import ACTIONS
 
@@ -16,13 +18,14 @@ def setup(self):
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
 
-    self.action_filter_prob = 0.5
+    self.action_filter_prob = 0
     self.initial_action_filter_prop = self.action_filter_prob
     
     #self.estimator = GBTEstimator(0.1, self.discount_factor)
     self.estimator = QTableEstimator(self.learning_rate, self.discount_factor)
+    #self.estimator = LinearSGDEstimator(self.learning_rate, self.discount_factor)
 
-    if os.path.isfile("models/model.pt"):
+    if False and os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
@@ -49,6 +52,8 @@ def act(self, game_state):
 
     if len(stupid_actions) == 6:
         stupid_actions = set()
+
+    stupid_actions = ['BOMB']
     
     if np.random.uniform() < 1-self.epsilon:
         action = self.estimator.estimate(game_state)

@@ -96,9 +96,8 @@ def state_to_features(game_state: dict) -> np.array:
                                                               coord_to_closest_enemy)
                 
             else:
-                # No targets left
-                target_direction = direction_from_coordinates(self_pos,
-                                                              self_pos)
+                # No targets left, choose arbitrary direction
+                target_direction = np.array([1,0,0,0])
                 
     ''' 4-vector of sign of difference of risk around and own risk '''
     risk_map = compute_risk_map(game_state)
@@ -107,16 +106,16 @@ def state_to_features(game_state: dict) -> np.array:
     
     risk_differences = np.zeros((4,))
 
-    sign = lambda x : -1 if x < 0 else 1
+    sign = lambda x : 0 if x < 0 else 1
 
-    risk_differences[0] = sign(own_risk - risk_map[(x+1,y)])
+    risk_differences[0] = sign(own_risk - risk_map[(x,y-1)])
     risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
     risk_differences[2] = sign(own_risk - risk_map[(x,y+1)])
-    risk_differences[3] = sign(own_risk - risk_map[(x,y-1)])
+    risk_differences[3] = sign(own_risk - risk_map[(x+1,y)])
 
     ''' Zero risk directions '''
     zero_risk = np.zeros((4,))
-    neighbors =  [(x+1,y), (x-1,y), (x,y-1), (x,y+1)]
+    neighbors =  [(x,y-1), (x-1,y), (x,y+1), (x+1,y)]
     for k, neighbor in enumerate(neighbors):
         if risk_map[neighbor] == 0:
             zero_risk[k] = 1

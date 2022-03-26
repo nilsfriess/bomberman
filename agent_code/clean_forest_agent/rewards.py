@@ -55,9 +55,7 @@ def reward_from_events(events):
         VALID_ACTION: -10, # Valid actions are only good if the serve a purpose
         BOMB_IN_CORNER: -20,
         USELESS_BOMB: -150,
-        USEFUL_BOMB: 40,
-        VERY_USEFUL_BOMB: 60,
-        EXTREMELY_USEFUL_BOMB: 80,
+        USEFUL_BOMB: 100,
         WALKED_TOWARDS_TARGET: 30,
         WALKED_AWAY_FROM_TARGET: -40,
         DECREASED_RISK: 30, # Not taking the correct direction but decreasing risk is good
