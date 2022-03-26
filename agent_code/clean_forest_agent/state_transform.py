@@ -94,29 +94,32 @@ def state_to_features(game_state: dict) -> np.array:
                                                                   [closest_enemy])
                 target_direction = direction_from_coordinates(self_pos,
                                                               coord_to_closest_enemy)
-
+                
             else:
                 # No targets left
                 target_direction = direction_from_coordinates(self_pos,
                                                               self_pos)
                 
-    ''' 5-vector of risks around us and at our position '''
+    ''' 4-vector of sign of difference of risk around and own risk '''
     risk_map = compute_risk_map(game_state)
     x,y = self_pos
     own_risk = risk_map[(x,y)]
     
     risk_differences = np.zeros((4,))
 
-    def sign(x):
-        if x == 0:
-            return 0
-        else:
-            return -1 if x < 0 else 1
+    sign = lambda x : -1 if x < 0 else 1
 
     risk_differences[0] = sign(own_risk - risk_map[(x+1,y)])
     risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
     risk_differences[2] = sign(own_risk - risk_map[(x,y+1)])
     risk_differences[3] = sign(own_risk - risk_map[(x,y-1)])
+
+    ''' Zero risk directions '''
+    zero_risk = np.zeros((4,))
+    neighbors =  [(x+1,y), (x-1,y), (x,y-1), (x,y+1)]
+    for k, neighbor in enumerate(neighbors):
+        if risk_map[neighbor] == 0:
+            zero_risk[k] = 1
 
     ''' Is dropping a bomb a valid move '''
     bomb_allowed = int(game_state['self'][2])
@@ -127,33 +130,14 @@ def state_to_features(game_state: dict) -> np.array:
     if n_destroyable_crates + n_destroyable_enemies == 0:
         bomb_useful = 0
     else:
-        # Either destroys crates or enemies
-        if n_destroyable_enemies == 0:
-            # Bomb destroys some crates, the more, the better
-            if n_destroyable_crates < 3:
-                bomb_useful = 1
-            else:
-                bomb_useful = 2
-        else:
-            # Bomb tries to kill enemy
-            bomb_useful = 3
+        bomb_useful = 1
     
     features = [
         target_direction.ravel(),
         risk_differences.ravel(),
+        zero_risk.ravel(),
         [bomb_allowed],
         [bomb_useful]
     ]
 
-    return np.concatenate(features)
-
-def feature_name_list():
-    feature_names = {
-        'target direction' : 4,
-        'risk differences' : 4,
-        'bomb allowed' : 1,
-        'bomb useful' : 1
-    }
-
-    return feature_names
-
+    return features

@@ -72,14 +72,12 @@ def end_of_round(self, last_game_state, last_action, events):
     print_progress(self, last_game_state, last_action, events, total_reward)
     
     # Update the gb tree and throw away the transitions
-    if len(self.transitions) > 10:
+    if len(self.transitions) >= 3:
         # Only train with sufficiently many transitions
         self.estimator.update(self.transitions)
 
         # self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
         self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
-
-        self.estimator.regressor.learning_rate = self.learning_rate
 
         
         #self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0008*last_game_state['round'])
@@ -100,7 +98,7 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
 
 
     # Check if we walked towards target        
-    target_direction = old_features[:4]
+    target_direction = old_features[0][:4]
     target_action = action_from_direction(target_direction)
 
     if (VALID_ACTION in events) and (target_action == self_action):
@@ -181,6 +179,13 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
             if DECREASED_RISK not in events:
                 events.append(INCREASED_RISK)
 
+        neighbors =  [(x+1,y), (x-1,y), (x,y-1), (x,y+1)]
+        directions = ['RIGHT', 'LEFT', 'UP', 'DOWN']
+
+        for k, neighbor in enumerate(neighbors):
+            if (risk_map[neighbor] == 0) and (self_action == directions[k]):
+                events.append(TOOK_ZERO_RISK_DIRECTION)
+
     else:
         # Check if we actively walked into a risk region
         if self_action != 'BOMB':
@@ -195,7 +200,7 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
 
     if USELESS_BOMB in events:
         self.useless_bombs += 1
-
+        
 def print_progress(self, last_game_state, last_action, events, total_reward):
     if e.KILLED_SELF in events:
         self.killed_self += 1
@@ -210,7 +215,8 @@ def print_progress(self, last_game_state, last_action, events, total_reward):
         summary += f"Planted {self.bombs} bombs, {self.useless_bombs / self.bombs * 100:.0f}% useless\n"
     else:
         summary += "Planted 0 bombs\n"
-    summary += f"Parameters: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}, filter = {self.action_filter_prob*100 :.2f}%"
+    summary += f"Parameters: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}, filter = {self.action_filter_prob*100 :.2f}%\n"
+    summary += f"Entries in QTable: {len(self.estimator.table)}\n"
     
     self.invalid = 0
     self.bombs = 0

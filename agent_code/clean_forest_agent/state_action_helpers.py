@@ -67,7 +67,7 @@ def generate_stupid_actions(game_state):
     up_risk = risk_map[up]
     down_risk = risk_map[down]
 
-    # print(f"Risk: {[left_risk, right_risk, up_risk, down_risk, current_risk]}")
+    # print(f"Risk at {(x,y)}: {[left_risk, right_risk, up_risk, down_risk, current_risk]}")
     
     '''
     If we are currently on a high-risk square, but there are neighboring zero-risk 

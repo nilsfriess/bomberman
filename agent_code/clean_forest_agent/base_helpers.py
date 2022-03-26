@@ -138,7 +138,7 @@ def compute_risk_map(game_state):
     If we are on a bomb, then walking in a direction with no escape routes,
     this will definitely kill us, so this has maximum risk
     '''
-    if self_pos in bombs:
+    if (self_pos in bombs):
         _, escape_squares_directions = should_drop_bomb(game_state)
 
         x,y = self_pos

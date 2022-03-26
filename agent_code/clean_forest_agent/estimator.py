@@ -25,12 +25,11 @@ class GBTEstimator:
     def update_learning_rate(self, new_rate):
         self.regressor.learning_rate = new_rate
 
-    ''' If action is None, just return the best action and corresponding value '''
     def estimate(self, game_state):
         if self.not_fitted:
             return random_action(allow_bombs = False)
             
-        state = state_to_features(game_state)
+        state = np.concatenate(state_to_features(game_state))
         qvalues = [self.regressor.predict(np.append(state,
                                                     one_hot_action(action)
                                                     ).reshape(1,-1))[0] for action in ACTIONS]
@@ -52,7 +51,7 @@ class GBTEstimator:
     
     def update(self, transitions):
         if self.not_fitted:
-            first_game_state = transitions[0][0]
+            first_game_state = np.concatenate(transitions[0][0])
             self.feature_size = first_game_state.size
 
             self.feature_names = feature_name_list()
@@ -95,10 +94,10 @@ class GBTEstimator:
             if self.not_fitted:
                 qvalues = [0]
             else:
-                state = next_next_new_state
+                state = np.concatenate(next_next_new_state)
                 qvalues = [self.regressor.predict(np.append(state, one_hot_action(a)).reshape(1,-1)) for a in ACTIONS]
 
-            state = now_old_state
+            state = np.concatenate(now_old_state)
             
             X[i,:] = np.append(state, one_hot_action(now_action))
             y[i] = rewards + self.discount_factor**3 * max(qvalues)
