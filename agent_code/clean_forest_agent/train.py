@@ -82,7 +82,7 @@ def end_of_round(self, last_game_state, last_action, events):
         self.estimator.regressor.learning_rate = self.learning_rate
 
         
-        self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0008*last_game_state['round'])
+        #self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0008*last_game_state['round'])
         self.transitions = []
 
     if last_game_state['round'] % 50 == 0:
@@ -181,16 +181,11 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
             if DECREASED_RISK not in events:
                 events.append(INCREASED_RISK)
 
-    ''' Is walking in any of the directions suicidal '''
-    escape_squares, escape_squares_directions = should_drop_bomb(old_game_state)
-    bombs = [pos for (pos,_) in old_game_state['bombs']]
-    if old_self_pos in bombs:
-        for direction in escape_squares_directions:
-            if (escape_squares_directions[direction] == 0) and (self_action == direction):
-                events.append(WALKED_INTO_SUICIDE_DIRECTION)
-        if not WALKED_AWAY_FROM_TARGET in events:
-            events.append(WALKED_INTO_GOOD_DIRECTION)
-
+    else:
+        # Check if we actively walked into a risk region
+        if self_action != 'BOMB':
+            if (risk_map[old_self_pos] == 0) and (risk_map[new_self_pos] > 0):
+                events.append(INCREASED_RISK)
         
     if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):
         self.invalid += 1
