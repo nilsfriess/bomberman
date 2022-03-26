@@ -3,6 +3,8 @@ import numpy as np
 from settings import ROWS,COLS
 
 from .helpers_local import *
+from .defense import *
+from .offense import *
 
 from time import sleep
 
@@ -11,8 +13,10 @@ def state_to_features(game_state: dict) -> np.array:
         return np.array([])
 
     n_steps_bombs = 3
-    n_steps_crates = 4
+    # n_steps_crates = 2
     (x,y) = game_state["self"][3]
+    field = game_state["field"]
+    others = game_state["others"]
 
 
     # OWN POSITION
@@ -32,20 +36,32 @@ def state_to_features(game_state: dict) -> np.array:
     coin_positions = direction_to_best_coin(game_state)
 
 
-    # one-hot encode whether a neighbouring field is affected by a bomb with timer greater than zero (these fields are forbidden anyway, the agent does not need to know about them), including the current position. The last entry quantifies the minimal timer of the bombs with effect on the neighbourhood
-    danger = bomb_danger(game_state, get_step_neighbourhood(x, y, n_steps_bombs, state_index), n_steps_bombs)
+    # # one-hot encode whether a neighbouring field is affected by a bomb with timer greater than zero (these fields are forbidden anyway, the agent does not need to know about them), including the current position. The last entry quantifies the minimal timer of the bombs with effect on the neighbourhood
+    # danger = bomb_danger(game_state, get_step_neighbourhood(x, y, n_steps_bombs, state_index), n_steps_bombs)
 
 
-    # one hot encodes, which tiles reachable in less than or in n_steps are crates.
-    crates = crates_in_neighbourhood(game_state, get_step_neighbourhood(x, y, n_steps_crates, state_index))
+    escape = bomb_escape_direction(x, y, get_step_neighbourhood(x, y, 1, state_index), game_state)
+
+
+    bomb_score = bomb_score_nb(x, y, get_step_neighbourhood(x, y, 1, state_index), field, others)
+
+
+    # # one hot encodes, which tiles reachable in less than or in n_steps are crates.
+    # crates = crates_in_neighbourhood(game_state, get_step_neighbourhood(x, y, n_steps_crates, state_index))
+    #
+    #
+    # enemies = enemies_in_neighbourhood(game_state, get_step_neighbourhood(x, y, n_steps_enemies, state_index))
+
 
 
     # the zeroth entry of this vector is used to decide which regressor is called, it should always be state_index
     features = np.concatenate([
     np.array([state_index]),
     coin_positions,
-    danger,
-    crates,
+    escape,
+    bomb_score,
+    #crates,
+    #enemies,
     edges
     ]).astype(np.int8)
 
@@ -53,6 +69,13 @@ def state_to_features(game_state: dict) -> np.array:
 
 
 def train_act(self, game_state: dict) -> str:
+    # if len(game_state["bombs"]) > 0:
+    #     (xb,yb),t = game_state["bombs"][0]
+    #     x,y = game_state["self"][3]
+    #     if xb != x or yb != y:
+    #         n = steps_needed_to_safety((x,y),(xb,yb), game_state["field"])
+    #         print(n)
+    #         sleep(0.5)
 
     #################
     # tweak probability to dodge a bomb:
@@ -76,8 +99,7 @@ def train_act(self, game_state: dict) -> str:
 
     if train_act.counter == 1:
         train_act.counter += 1
-        death_actions = death_implying_actions(game_state)
-        VALID_ACTIONS = np.setdiff1d(valid_actions(game_state), death_actions)
+        VALID_ACTIONS = valid_nondeadly_actions(game_state)
 
         #VALID_ACTIONS = np.setdiff1d(VALID_ACTIONS, np.array(("BOMB")))
 
@@ -97,12 +119,9 @@ def train_act(self, game_state: dict) -> str:
 
     ##################
     # act:
-    VALID_ACTIONS = possible_actions(game_state)
+    VALID_ACTIONS = valid_nondeadly_actions(game_state)
 
-    VALID_ACTIONS = np.setdiff1d(VALID_ACTIONS, np.array(("BOMB")))
-    #VALID_ACTIONS = np.array(["UP", "DOWN", "LEFT", "RIGHT"])
-
-    if VALID_ACTIONS.shape[0] > 0:
+    if len(VALID_ACTIONS) > 1:
         if np.random.uniform() < 1-self.epsilon:
             state = state_to_features(game_state)
             av = np.array([self.QEstimator.estimate(state, action) for action in VALID_ACTIONS])
@@ -111,11 +130,14 @@ def train_act(self, game_state: dict) -> str:
             action = np.random.choice(len(VALID_ACTIONS))
             return VALID_ACTIONS[action]
 
-    elif VALID_ACTIONS.shape[0] == 1:
+    elif len(VALID_ACTIONS) == 1:
         best_action = VALID_ACTIONS[0]
 
     else:
-        best_action = "WAIT"
+        if game_state["self"][2]:
+            best_action = "BOMB"
+        else:
+            best_action = "WAIT"
 
     return best_action
 

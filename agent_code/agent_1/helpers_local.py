@@ -41,9 +41,10 @@ def load_model(self, state_to_features):
                 # reset after testing update:
                 self.QEstimator.regressor = stored_regressor
                 print("Using stored regression parameters")
+                #self.logger.info("Loading model from saved state.")
 
             except ValueError:
-                print("Stored regression parameters have another shape, beginning to train new parameters, will overwrite old model after 20 rounds.")
+                print("Stored regression parameters have another shape. If self.train, beginning to train new parameters, will overwrite old model after 20 rounds.")
                 self.QEstimator = SubspaceQEstimator(learning_rate = 0.1,
                                              discount_factor = 0.8)
 
@@ -273,6 +274,22 @@ def crates_in_neighbourhood(game_state, neighbourhood):
 
     return crates
 
+# one hot encodes, which tiles reachable in less than or in n_steps are crates.
+def enemies_in_neighbourhood(game_state, neighbourhood, n_steps):
+    others = [(x,y) for (_,_,_,(x,y)) in game_state['others']]
+    enemies = np.zeros(len(neighbourhood))
+    (x,y) = game_state["self"][3]
+
+    for (x_a,y_a) in others:
+        if abs(x_a-x) + abs(y_a-y) > n_steps:
+            continue
+        for index, (x_test, y_test) in neighbourhood:
+            if x_a == x_test and y_a == y_test:
+                enemies[index] = 1
+                break #out of the neighb. loop
+
+    return enemies
+
 
 def is_at_edge(x, y, state_index = None) -> np.array:
     if (state_index is None) or state_index == 0:
@@ -303,6 +320,7 @@ def is_at_edge(x, y, state_index = None) -> np.array:
             assert False, "state index out of bounds"
 
     return edges
+
 
 """ACTIONS"""
 
@@ -336,7 +354,7 @@ def death_implying_actions(game_state) -> np.array:
 
     # ACTIONS THAT GUARANTEE A DEATH WITHIN A FEW STEPS
     bomb_drop_deadly = False
-    on_bomb_death_dir, min_pathlength = deadly_directions_after_own_bomb(game_state, also_give_min_pathlength = True)
+    on_bomb_death_dir, min_pathlength = deadly_directions_after_own_bomb(game_state)
     if on_bomb_death_dir.shape[0] == 4:
         bomb_drop_deadly = True
 
@@ -352,7 +370,7 @@ def death_implying_actions(game_state) -> np.array:
         death_actions = np.union1d(imm_death_actions, on_bomb_death_dir)
 
         # determine whether not moving is deadly:
-        if min_pathlength-1 >= timer:
+        if min_pathlength > timer:
             death_actions = np.append(death_actions, np.array(["WAIT", "BOMB"]))
     else:
         death_actions = imm_death_actions
@@ -363,7 +381,7 @@ def death_implying_actions(game_state) -> np.array:
     return death_actions
 
 
-def deadly_directions_after_own_bomb(game_state, also_give_min_pathlength = False):
+def deadly_directions_after_own_bomb(game_state):
     (x,y) = game_state["self"][3]
     field = game_state["field"]
     deadly = []
@@ -402,10 +420,7 @@ def deadly_directions_after_own_bomb(game_state, also_give_min_pathlength = Fals
             pathlengths.append(pathlen)
 
 
-    if not also_give_min_pathlength:
-        return np.array(deadly)
-    else:
-        return np.array(deadly), min(pathlengths)
+    return np.array(deadly), min(pathlengths)
 
 
 # one hot encodes, which tiles reachable in less than n_steps are blocked. If n_steps == 1, the order is UP DOWN LEFT RIGHT
@@ -431,7 +446,7 @@ def blocked_neighbourhood(game_state, x, y, n_steps=1) -> np.array:
                 continue
             else:
 
-                for (_,x_a,y_a) in others:
+                for (x_a,y_a) in others:
                     if x_a == x_test and y_a == y_test:
                         blocked[index] = 1
                         break # out of the others loop

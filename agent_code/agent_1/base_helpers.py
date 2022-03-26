@@ -27,10 +27,10 @@ def find_path(field, start, goal):
 
     start = np.array(start)
     weights = cdist(coords, [start], 'cityblock').reshape(ROWS, COLS).astype(np.float32)
-    
+
     weights = weights + 1 # weights must >= 1
     weights[field != 0] = np.inf # walls have infinite weight
-    
+
     # Compute shortest path from start to goal using A*
     path = pyastar2d.astar_path(weights, start, goal, allow_diagonal=False)
     if path is None:
@@ -49,13 +49,13 @@ def find_next_step_to_assets(field, others, self_pos, assets):
 
     for other in others:
         field[other] = 1
-    
+
     shortest_path_length = float("inf")
     best_coord = (0,0)
-    
+
     for asset in assets:
         path = find_path(field, self_pos, asset)
-        
+
         if len(path) == 0:
             return self_pos
 
@@ -70,7 +70,7 @@ Returns 1-hot encoded 4-array where `self_pos` and `asset_pos`
 are two neighboring coordinates on the grid. Each component
 of the result corresponds to one direction, i.e., one component
 is 1 iff `self_pos` is directly above `asset_pos`, one component
-is 1 iff `self_pos` is left of `asset_pos` etc. 
+is 1 iff `self_pos` is left of `asset_pos` etc.
 
 Should be used together with `find_next_step_to_assets`
 '''
@@ -79,7 +79,7 @@ def direction_from_coordinates(self_pos, asset_pos):
 
     self_pos = np.array(self_pos)
     asset_pos = np.array(asset_pos)
-    
+
     if not np.array_equal(self_pos, asset_pos):
         dist = self_pos - asset_pos
 
@@ -121,11 +121,11 @@ are transposed versions of each other.
 def rotate_game_state(game_state: dict, n):
     n = -n
     rot_game_state = game_state.copy()
-    
+
     # rotate the field
     field = game_state['field']
     rot_game_state['field'] = np.rot90(field, n)
-    
+
     # rotate bombs
     bombs = game_state['bombs']
     if len(bombs) > 0:
@@ -181,7 +181,7 @@ def rotate_game_state(game_state: dict, n):
         for enemy in enemies:
             new_enemies.append(rotate_player(enemy))
         rot_game_state['others'] = new_enemies
-    
+
     return rot_game_state
 
 def rotate_action(action, n):

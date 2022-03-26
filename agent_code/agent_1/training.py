@@ -52,7 +52,7 @@ def setup_custom_vars(self):
     #self.plotter_bomb = RealtimePlot("Bombs", "bombs", loglog = False)
     #self.recorder_coin = Recorder("Coins_only_depth8", ["coins", "steps needed"], 5)
 
-    self.QEstimator.steps = 3
+    self.QEstimator.steps = 2
 
 def reward_from_events(events: List[str]) -> int:
     # if (DID_MOVE_AWAY_FROM_BOMB in events) or\
@@ -77,7 +77,7 @@ def reward_from_events(events: List[str]) -> int:
         USELESS_BOMB: -400,
         USEFUL_BOMB: 500,
         WAITED_ON_BOMB: -100,
-        #DODGED_BOMB: 200,
+        DODGED_BOMB: 200,
         # DID_NOT_SURVIVE: -1000,
         #e.SURVIVED_ROUND: 2000
     }
@@ -126,11 +126,6 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
         new_events.append(AVOIDED_BOMB)
         self.avoided_bomb += 1
 
-    bombs = [pos for (pos, _) in old_game_state['bombs']]
-    if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
-        print("Waited on bomb")
-        new_events.append(WAITED_ON_BOMB)
-
     if self_action == 'BOMB':
         (x,y) = old_game_state['self'][3]
         field = np.array(old_game_state['field'])
@@ -173,6 +168,11 @@ def compute_custom_events(self, old_game_state: dict, self_action: str, new_game
         else:
             new_events.append(USEFUL_BOMB)
 
+    bombs = [pos for (pos, _) in old_game_state['bombs']]
+    if (old_self_pos in bombs) and (old_self_pos == new_self_pos):
+        print("Waited on bomb")
+        new_events.append(WAITED_ON_BOMB)
+
     return new_events
 
 def print_progress(self, last_game_state, last_action, events):
@@ -210,5 +210,5 @@ def print_progress(self, last_game_state, last_action, events):
     self.epsilon = max(0.001,self.initial_epsilon/(1 + last_game_state['round']/2000))
     self.learning_rate = max(0.01, self.initial_learning_rate/(1 + last_game_state['round']/2000))
     self.QEstimator.update_learning_rate(self.learning_rate)
-    self.show_dodging = self.initial_show_dodging/(1 + last_game_state['round']/1000)
+    self.show_dodging = self.initial_show_dodging/(1 + last_game_state['round']/10000)
     print()
