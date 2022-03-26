@@ -16,7 +16,7 @@ def random_action(allow_bombs = True):
     else:
         return np.random.choice(ACTIONS[:-1])
 
-def generate_suicidal_actions(game_state, look_ahead = False):
+def generate_suicidal_actions(game_state):
     deadly_in_map  = deadly_in(game_state)
     deadly_now_map = deadly_now(game_state)
 
@@ -41,20 +41,11 @@ def generate_suicidal_actions(game_state, look_ahead = False):
     if deadly_in_map[(x,y)] == 1:
         actions.add('WAIT')
 
-    if look_ahead:
-        total_escape_squares, escape_directions = should_drop_bomb(game_state)
+    total_escape_squares, _ = should_drop_bomb(game_state)
     
-        # Check if dropping a bomb will probably kill us
-        if total_escape_squares == 0:
-            actions.add('BOMB')
-
-        # If we have just dropped a bomb, walking into a direction with no escapes is forbidden
-        bombs = [pos for (pos,_) in game_state['bombs']]
-        if (x,y) in bombs:
-            directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
-            for d in directions:
-                if escape_directions[d] == 0:
-                    actions.add(d)
+    # Check if dropping a bomb will probably kill us
+    if total_escape_squares == 0:
+         actions.add('BOMB')
 
     return actions    
 
@@ -127,21 +118,17 @@ def generate_stupid_actions(game_state):
 
             if current_risk > 0:
                 stupid_actions.add('BOMB')
-            break        
+            break
 
-    # bombs = [pos for (pos,_) in game_state['bombs']]
-    # if (x,y) in bombs:
-    #     _, n_escape_squares = should_drop_bomb(game_state)
+    # If we have just dropped a bomb, walking into a direction with no escapes is forbidden
+    _, escape_directions = should_drop_bomb(game_state)
+    bombs = [pos for (pos,_) in game_state['bombs']]
+    if (x,y) in bombs:
+        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+        for d in directions:
+            if escape_directions[d] == 0:
+                stupid_actions.add(d)
 
-    #     # If we just dropped a bomb, then walking in a direction with no escape squares is stupid
-    #     directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
-    #     for d in directions:
-    #         if n_escape_squares[d] <= 1:
-    #             stupid_actions.add(d)
-        
-    # if (should_drop_bomb(game_state)[0] > 2) and (should_drop_bomb(game_state)[0] <= 8):
-    #     # Dropping a bomb is not safe
-    #     stupid_actions.append('BOMB')
     return stupid_actions
 
 '''

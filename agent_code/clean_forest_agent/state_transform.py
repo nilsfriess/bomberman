@@ -12,7 +12,7 @@ def state_to_features(game_state: dict) -> np.array:
     # Assemble features
 
     ''' DIRECTION TO TARGET '''
-    TOTAL_COINS = 20
+    TOTAL_COINS = 50
     # If there are collectable coins, the target is the nearest coin.
     # If there are no collectable coins but still hidden coins, the target is the nearest crate.
     # If none of the above is true, the target is the nearest enemy.
@@ -126,7 +126,11 @@ def state_to_features(game_state: dict) -> np.array:
     
     risk_differences = np.zeros((4,))
 
-    sign = lambda x : -1 if x <= 0 else 1
+    def sign(x):
+        if x == 0:
+            return 0
+        else:
+            return -1 if x < 0 else 1
 
     risk_differences[0] = sign(own_risk - risk_map[(x+1,y)])
     risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
@@ -164,10 +168,8 @@ def state_to_features(game_state: dict) -> np.array:
     
     features = [
         target_direction.ravel(),
-        [own_risk],
         risk_differences.ravel(),
         [bomb_allowed],
-        [suicide_bomb],
         suicide_directions.ravel(),
         [bomb_useful]
     ]
@@ -177,7 +179,6 @@ def state_to_features(game_state: dict) -> np.array:
 def feature_name_list():
     feature_names = {
         'target direction' : 4,
-        'own risk' : 1,
         'risk differences' : 4,
         'bomb allowed' : 1,
         'bomb suicidal' : 1,

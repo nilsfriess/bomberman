@@ -72,7 +72,7 @@ def end_of_round(self, last_game_state, last_action, events):
     print_progress(self, last_game_state, last_action, events, total_reward)
     
     # Update the gb tree and throw away the transitions
-    if len(self.transitions) > 50:
+    if len(self.transitions) > 10:
         # Only train with sufficiently many transitions
         self.estimator.update(self.transitions)
 
@@ -82,7 +82,7 @@ def end_of_round(self, last_game_state, last_action, events):
         self.estimator.regressor.learning_rate = self.learning_rate
 
         
-        self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.001*last_game_state['round'])
+        self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0008*last_game_state['round'])
         self.transitions = []
 
     if last_game_state['round'] % 50 == 0:
@@ -154,39 +154,42 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
             
     # Check if we went in a direction with lower risk
     risk_map = compute_risk_map(old_game_state)
-
-    if (risk_map[old_self_pos] > 0) and (risk_map[new_self_pos] < risk_map[old_self_pos]):
-        events.append(DECREASED_RISK)
-    if (risk_map[new_self_pos] >= risk_map[old_self_pos]) and (risk_map[old_self_pos] > 0):
-        events.append(INCREASED_RISK)
-
-    # Check if we went in the direction with the lowest risk
-    risk_factors = np.zeros((5,))
-
-    x,y = old_self_pos    
-    risk_factors[0] = risk_map[(x+1,y)]
-    risk_factors[1] = risk_map[(x-1,y)]
-    risk_factors[2] = risk_map[(x,y+1)]
-    risk_factors[3] = risk_map[(x,y-1)]
-    risk_factors[4] = risk_map[(x,y)]
+    x,y = old_self_pos
+    own_risk = risk_map[(x,y)]
     
-    if (risk_map[old_self_pos] > 0) and (risk_map[new_self_pos] == np.amin(risk_factors)):
-        # Took direction with lowest risk
-        events.append(TOOK_LOWEST_RISK_DIRECTION)
+    risk_differences = np.zeros((4,))
 
-    ''' Check if we made something suicidal '''
-    ''' Is dropping a bomb suicidal '''
-    escape_squares, escape_squares_directions = should_drop_bomb(old_game_state)
+    def sign(x):
+        if x == 0:
+            return 0
+        else:
+            return -1 if x < 0 else 1
 
-    if (escape_squares == 0) and (self_action == 'BOMB'):
-        events.append(DROPPED_SUICIDE_BOMB)
+    risk_differences[0] = sign(own_risk - risk_map[(x+1,y)]) #right
+    risk_differences[1] = sign(own_risk - risk_map[(x-1,y)]) #left
+    risk_differences[2] = sign(own_risk - risk_map[(x,y+1)]) #down
+    risk_differences[3] = sign(own_risk - risk_map[(x,y-1)]) #up
+
+    directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+
+    if own_risk > 0:
+        if np.any(risk_differences != -1): # If there is a direction with lower risk
+            for k, d in enumerate(directions):
+                if (risk_differences[k] != -1) and (self_action == d):
+                    events.append(DECREASED_RISK)
+                    break
+            if DECREASED_RISK not in events:
+                events.append(INCREASED_RISK)
 
     ''' Is walking in any of the directions suicidal '''
+    escape_squares, escape_squares_directions = should_drop_bomb(old_game_state)
     bombs = [pos for (pos,_) in old_game_state['bombs']]
     if old_self_pos in bombs:
         for direction in escape_squares_directions:
             if (escape_squares_directions[direction] == 0) and (self_action == direction):
                 events.append(WALKED_INTO_SUICIDE_DIRECTION)
+        if not WALKED_AWAY_FROM_TARGET in events:
+            events.append(WALKED_INTO_GOOD_DIRECTION)
 
         
     if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):

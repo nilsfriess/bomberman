@@ -9,8 +9,8 @@ from .base_helpers import ACTIONS
 
 def setup(self):
     self.epsilon = 0.4
-    self.learning_rate = 0.12
-    self.discount_factor = 0.9
+    self.learning_rate = 0.1
+    self.discount_factor = 0.99
 
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
@@ -20,15 +20,19 @@ def setup(self):
     
     self.estimator = GBTEstimator(0.1, self.discount_factor)
 
-    if False and os.path.isfile("models/model.pt"):
+    if os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
-            self.initial_epsilon = 0.01
-            self.epsilon = 0.01
+            self.initial_epsilon = 0.1
+            self.epsilon = 0.1
 
             self.initial_learning_rate = 0.1
             self.learning_rate = 0.1
+
+            self.action_filter_prob = 0.0
+            self.initial_action_filter_prop = self.action_filter_prob
+            
             print("LOADED MODEL")
 
 def act(self, game_state):
