@@ -6,7 +6,7 @@ from .base_helpers import *
 
 
 def bomb_score(drop_coord, field, others) -> np.int8:
-
+    
 
     return 0
 

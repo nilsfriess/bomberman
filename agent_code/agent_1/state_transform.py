@@ -40,10 +40,10 @@ def state_to_features(game_state: dict) -> np.array:
     # danger = bomb_danger(game_state, get_step_neighbourhood(x, y, n_steps_bombs, state_index), n_steps_bombs)
 
 
-    escape = bomb_escape_direction(x, y, get_step_neighbourhood(x, y, 1, state_index), game_state)
+    # escape = bomb_escape_direction(x, y, get_step_neighbourhood(x, y, 1, state_index), game_state)
 
 
-    bomb_score = bomb_score_nb(x, y, get_step_neighbourhood(x, y, 1, state_index), field, others)
+    bomb_score = bomb_score_nb(x, y, get_step_neighbourhood(x, y, 3, state_index), field, others)
 
 
     # # one hot encodes, which tiles reachable in less than or in n_steps are crates.
@@ -58,7 +58,7 @@ def state_to_features(game_state: dict) -> np.array:
     features = np.concatenate([
     np.array([state_index]),
     coin_positions,
-    escape,
+    #escape,
     bomb_score,
     #crates,
     #enemies,

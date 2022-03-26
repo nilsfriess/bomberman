@@ -343,6 +343,7 @@ def death_implying_actions(game_state) -> np.array:
 
     ordered_actions = np.array(["UP", "DOWN", "LEFT", "RIGHT", "WAIT", "BOMB"])
     (x,y) = game_state["self"][3]
+    field = game_state["field"]
 
 
     # IMMEDIATELY DEADLY ACTIONS
@@ -353,10 +354,11 @@ def death_implying_actions(game_state) -> np.array:
 
 
     # ACTIONS THAT GUARANTEE A DEATH WITHIN A FEW STEPS
-    bomb_drop_deadly = False
-    on_bomb_death_dir, min_pathlength = deadly_directions_after_own_bomb(game_state)
-    if on_bomb_death_dir.shape[0] == 4:
+    min_pathlength = steps_needed_on_bomb((x,y), field)
+    if min_pathlength > 4:
         bomb_drop_deadly = True
+    else:
+        bomb_drop_deadly = False
 
     standing_on_bomb = False
     timer = 0
@@ -367,6 +369,7 @@ def death_implying_actions(game_state) -> np.array:
             break
 
     if standing_on_bomb:
+        on_bomb_death_dir = deadly_directions_after_own_bomb(game_state)
         death_actions = np.union1d(imm_death_actions, on_bomb_death_dir)
 
         # determine whether not moving is deadly:
@@ -380,19 +383,54 @@ def death_implying_actions(game_state) -> np.array:
 
     return death_actions
 
+def steps_needed_on_bomb(drop_coord, field) -> np.int8:
+    (x,y) = drop_coord
+    max_steps = 5
+    if field[drop_coord] != 0:
+        return max_steps
+    if not (x<COLS and y<ROWS and x>=0 and y>=0):
+        return max_steps
+
+    min_steps = max_steps
+    for index, (dx,dy) in [(0,(1,0)), (1,(-1,0)), (2,(0,1)), (3,(0,-1))]:
+        tile_dist = 1
+        for tile_dist in range(1,5):
+
+            if tile_dist >= min_steps:
+                break
+
+            # test tile going tile_dist steps in direction dx,dy
+            x_t, y_t = x+tile_dist*dx, y+tile_dist*dy
+
+            # direction is blocked
+            if field[x_t,y_t] != 0:
+                break
+
+            # standing at x+dx,y+dy, check whether we can go sideways from here by swapping dx and dy (one is alwas zero):
+            if field[x_t+dy,y_t+dx] == 0 or field[x_t-dy,y_t-dx] == 0:
+                min_steps = min(tile_dist + 1, min_steps)
+
+                break
+
+
+            # if we are not yet broken out of the loop, the direction points towards a narrow path of length 3. If the 4th tile is free, we can avoid the bomb by going there:
+            if tile_dist == 4 and field[x+4*dx,y+4*dy] == 0:
+                min_steps = min(4, min_steps)
+
+
+    return min_steps
+
 
 def deadly_directions_after_own_bomb(game_state):
     (x,y) = game_state["self"][3]
     field = game_state["field"]
     deadly = []
-    pathlengths = [4]
 
     corresponding_actions = ["RIGHT", "LEFT", "DOWN", "UP"]
 
     for index, (dx,dy) in [(0,(1,0)), (1,(-1,0)), (2,(0,1)), (3,(0,-1))]:
         bomb_avoidable = False
         tile_dist = 1
-        pathlen = 0
         for tile_dist in range(1,5):
             # test tile going tile_dist steps in direction dx,dy
             x_t, y_t = x+tile_dist*dx, y+tile_dist*dy
@@ -404,23 +442,18 @@ def deadly_directions_after_own_bomb(game_state):
             # standing at x+dx,y+dy, check whether we can go sideways from here by swapping dx and dy (one is alwas zero):
             if field[x_t+dy,y_t+dx] == 0 or field[x_t-dy,y_t-dx] == 0:
                 bomb_avoidable = True
-                pathlen = tile_dist + 1
                 break
 
 
             # if we are not yet broken out of the loop, the direction points towards a narrow path of length 3. If the 4th tile is free, we can avoid the bomb by going there:
             if tile_dist == 4 and field[x+4*dx,y+4*dy] == 0:
                 bomb_avoidable = True
-                pathlen = 4
 
         if not bomb_avoidable:
             deadly.append(corresponding_actions[index])
-        # store pathlengths of avoidable bombs
-        else:
-            pathlengths.append(pathlen)
 
 
-    return np.array(deadly), min(pathlengths)
+    return np.array(deadly)
 
 
 # one hot encodes, which tiles reachable in less than n_steps are blocked. If n_steps == 1, the order is UP DOWN LEFT RIGHT

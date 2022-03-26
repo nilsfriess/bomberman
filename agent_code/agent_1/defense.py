@@ -173,3 +173,41 @@ def valid_nondeadly_actions(game_state):
             actions.append(a)
 
     return actions
+
+
+def steps_needed_on_bomb(drop_coord, field) -> np.int8:
+    (x,y) = drop_coord
+    max_steps = 5
+    if field[coord] != 0:
+        return max_steps
+    if not (coord[0]<COLS and coord[1]<ROWS and coord[0]>=0 and coord[1]>=0):
+        return max_steps
+        
+    min_steps = max_steps
+    for index, (dx,dy) in [(0,(1,0)), (1,(-1,0)), (2,(0,1)), (3,(0,-1))]:
+        tile_dist = 1
+        for tile_dist in range(1,5):
+
+            if tile_dist >= min_steps:
+                break
+
+            # test tile going tile_dist steps in direction dx,dy
+            x_t, y_t = x+tile_dist*dx, y+tile_dist*dy
+
+            # direction is blocked
+            if field[x_t,y_t] != 0:
+                break
+
+            # standing at x+dx,y+dy, check whether we can go sideways from here by swapping dx and dy (one is alwas zero):
+            if field[x_t+dy,y_t+dx] == 0 or field[x_t-dy,y_t-dx] == 0:
+                min_steps = min(tile_dist + 1, min_steps)
+
+                break
+
+
+            # if we are not yet broken out of the loop, the direction points towards a narrow path of length 3. If the 4th tile is free, we can avoid the bomb by going there:
+            if tile_dist == 4 and field[x+4*dx,y+4*dy] == 0:
+                min_steps = min(4, min_steps)
+
+
+    return min_steps
