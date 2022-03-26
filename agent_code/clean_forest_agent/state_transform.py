@@ -51,44 +51,25 @@ def state_to_features(game_state: dict) -> np.array:
                                                           coord_to_closest_coin)
 
     if not found_coin:
-        # No visible coins, compute total left coins
+        # No visible coins or not reachable, destroy nearby crates
         enemies = game_state['others']
-        killed_enemies = 3 - len(enemies)
+        crates_coords = np.argwhere(field == 1)
+        enemy_positions = [pos for (_,_,_,pos) in enemies]
+        if len(crates_coords) > 0:
+            dist_to_crates = cdist(crates_coords, [self_pos], 'cityblock')
 
-        TOTAL_COINS += 5*killed_enemies
-
-        total_score = 0
-        for (_,score,_,_) in enemies:
-            total_score += score
-
-        # Add our own score
-        (_,score,_,_) = game_state['self']
-        total_score += score
-
-        left_coins = TOTAL_COINS - total_score
-
-        if left_coins > 0:
-            # There are still coins left, target is nearest crate            
-            crates_coords = np.argwhere(field == 1)
-            enemy_positions = [pos for (_,_,_,pos) in enemies]
-            if len(crates_coords) > 0:
-                dist_to_crates = cdist(crates_coords, [self_pos], 'cityblock')
-
-                n_closest_crates = min(len(crates_coords), 5)
-                crates_by_distance = crates_coords[np.argpartition(dist_to_crates.ravel(),
-                                                           n_closest_crates-1)]
-                closest_crates = crates_by_distance[:n_closest_crates]
+            n_closest_crates = min(len(crates_coords), 5)
+            crates_by_distance = crates_coords[np.argpartition(dist_to_crates.ravel(),
+                                                               n_closest_crates-1)]
+            closest_crates = crates_by_distance[:n_closest_crates]
                 
-                coord_to_closest_crate = find_next_step_to_assets(field,
-                                                                  enemy_positions,
-                                                                  self_pos,
-                                                                  closest_crates)        
+            coord_to_closest_crate = find_next_step_to_assets(field,
+                                                              enemy_positions,
+                                                              self_pos,
+                                                              closest_crates)        
 
-                target_direction = direction_from_coordinates(self_pos,
+            target_direction = direction_from_coordinates(self_pos,
                                                               coord_to_closest_crate)
-            else:
-                target_direction = direction_from_coordinates(self_pos,
-                                                              self_pos)
                                                     
         else:
             # No collectable coins and no hidden coins left, find enemy
@@ -156,21 +137,11 @@ def state_to_features(game_state: dict) -> np.array:
         else:
             # Bomb tries to kill enemy
             bomb_useful = 3
-
-    ''' Is dropping a bomb suicidal '''
-    escape_squares, escape_squares_directions = should_drop_bomb(game_state)
-    suicide_bomb = int( escape_squares == 0 )
-
-    ''' Is walking in any of the directions suicidal '''
-    suicide_directions = np.zeros((4,))
-    for k, dir_escape_squares in enumerate(escape_squares_directions.values()):
-        suicide_directions[k] = int( dir_escape_squares == 0)
     
     features = [
         target_direction.ravel(),
         risk_differences.ravel(),
         [bomb_allowed],
-        suicide_directions.ravel(),
         [bomb_useful]
     ]
 
@@ -181,8 +152,6 @@ def feature_name_list():
         'target direction' : 4,
         'risk differences' : 4,
         'bomb allowed' : 1,
-        'bomb suicidal' : 1,
-        'suicidal directions' : 4,
         'bomb useful' : 1
     }
 

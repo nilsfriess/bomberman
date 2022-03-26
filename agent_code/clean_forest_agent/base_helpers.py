@@ -122,7 +122,7 @@ def compute_risk_map(game_state):
         for (square, risk) in explosions:
             risk_map[square] = risk
 
-        risk_map[bomb] = 5
+        risk_map[bomb] = 10 # The risk of the bomb field itself is high
 
     # Compute the explosion radius of bombs that could be dropped by enemies
     for (_,_,_,pos) in game_state['others']:
@@ -133,6 +133,20 @@ def compute_risk_map(game_state):
 
      # Blocked tiles have large risk since they lead to invalid actions
     risk_map[field != 0] = 10
+
+    ''' 
+    If we are on a bomb, then walking in a direction with no escape routes,
+    this will definitely kill us, so this has maximum risk
+    '''
+    if self_pos in bombs:
+        _, escape_squares_directions = should_drop_bomb(game_state)
+
+        x,y = self_pos
+        neighbors = [(x+1,y), (x-1,y), (x,y+1), (x,y-1)]
+        suicide_directions = np.zeros((4,))
+        for k, dir_escape_squares in enumerate(escape_squares_directions.values()):
+            if dir_escape_squares == 0:
+                risk_map[neighbors[k]] = 100
            
     return risk_map
 
