@@ -18,24 +18,24 @@ def setup(self):
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
 
-    self.action_filter_prob = 0
+    self.action_filter_prob = 1
     self.initial_action_filter_prop = self.action_filter_prob
     
     #self.estimator = GBTEstimator(0.1, self.discount_factor)
     self.estimator = QTableEstimator(self.learning_rate, self.discount_factor)
     #self.estimator = LinearSGDEstimator(self.learning_rate, self.discount_factor)
 
-    if False and os.path.isfile("models/model.pt"):
+    if os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
-            self.initial_epsilon = 0.2
+            self.initial_epsilon = 0.05
             self.epsilon = self.initial_epsilon
 
             self.initial_learning_rate = 0.1
             self.learning_rate = 0.1
 
-            self.action_filter_prob = 0.0
+            self.action_filter_prob = 0.1
             self.initial_action_filter_prop = self.action_filter_prob
             
             print("LOADED MODEL")
@@ -53,7 +53,7 @@ def act(self, game_state):
     if len(stupid_actions) == 6:
         stupid_actions = set()
 
-    stupid_actions = ['BOMB']
+    # stupid_actions = ['BOMB']
     
     if np.random.uniform() < 1-self.epsilon:
         action = self.estimator.estimate(game_state)
