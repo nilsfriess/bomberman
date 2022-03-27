@@ -106,20 +106,36 @@ def state_to_features(game_state: dict) -> np.array:
     
     lower_risk_directions = np.zeros((4,))
 
-    sign = lambda x : 0 if x < 0 else 1
+    right = (x+1,y)
+    left  = (x-1,y)
+    up    = (x,y-1)
+    down  = (x,y+1)
+    
+    left_risk = risk_map[left]
+    right_risk = risk_map[right]
+    up_risk = risk_map[up]
+    down_risk = risk_map[down]
 
-    # Zero means risk in that direction is higher, one means lower
-    lower_risk_directions[0] = sign(own_risk - risk_map[(x,y-1)])
-    lower_risk_directions[1] = sign(own_risk - risk_map[(x-1,y)])
-    lower_risk_directions[2] = sign(own_risk - risk_map[(x,y+1)])
-    lower_risk_directions[3] = sign(own_risk - risk_map[(x+1,y)])
+    # If there exist zero risk directions, consider only those
+    if up_risk == 0:
+        lower_risk_directions[0] = 1
+    if left_risk == 0:
+        lower_risk_directions[1] = 1
+    if down_risk == 0:
+        lower_risk_directions[2] = 1
+    if right_risk == 0:
+        lower_risk_directions[3] = 1
 
-    ''' Zero risk directions '''
-    zero_risk = np.zeros((4,))
-    neighbors =  [(x,y-1), (x-1,y), (x,y+1), (x+1,y)]
-    for k, neighbor in enumerate(neighbors):
-        if risk_map[neighbor] == 0:
-            zero_risk[k] = 1
+    if not np.any(lower_risk_directions == 1):
+        # Did not find zero risk direction, set 1 where risk is strictly lower
+        
+        lower_than_own_risk = lambda x : 1 if x < own_risk else 0
+    
+        # Zero means risk in that direction is higher, one means lower
+        lower_risk_directions[0] = lower_than_own_risk(risk_map[up])
+        lower_risk_directions[1] = lower_than_own_risk(risk_map[left])
+        lower_risk_directions[2] = lower_than_own_risk(risk_map[down])
+        lower_risk_directions[3] = lower_than_own_risk(risk_map[up])
 
     ''' USEFUL BOMB '''
     n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)
@@ -129,11 +145,18 @@ def state_to_features(game_state: dict) -> np.array:
         bomb_useful = 0
     else:
         bomb_useful = 1
+
+    if not found_coin:
+        if len(crates_coords) == 0:
+            # No coins and no crates, bomb is useful as soon as we are near an enemy
+            for enemy in enemy_positions:
+                if abs(enemy[0] - x) - (enemy[1] - y) < 4:
+                    bomb_useful = 1
+                    break
     
     features = [
         target_direction.ravel(),
         lower_risk_directions.ravel(),
-        zero_risk.ravel(),
         [bomb_useful]
     ]
 

@@ -12,8 +12,8 @@ from .base_helpers import ACTIONS
 
 def setup(self):
     self.epsilon = 0.4
-    self.learning_rate = 0.1
-    self.discount_factor = 0.99
+    self.learning_rate = 0.3
+    self.discount_factor = 0.8
 
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
@@ -29,13 +29,13 @@ def setup(self):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
-            self.initial_epsilon = 0.05
+            self.initial_epsilon = 0.15
             self.epsilon = self.initial_epsilon
 
             self.initial_learning_rate = 0.1
             self.learning_rate = 0.1
 
-            self.action_filter_prob = 0.1
+            self.action_filter_prob = 0.0
             self.initial_action_filter_prop = self.action_filter_prob
             
             print("LOADED MODEL")
@@ -54,6 +54,10 @@ def act(self, game_state):
         stupid_actions = set()
 
     # stupid_actions = ['BOMB']
+
+    if not self.train:
+        self.epsilon = 0
+        stupid_actions = set()
     
     if np.random.uniform() < 1-self.epsilon:
         action = self.estimator.estimate(game_state)

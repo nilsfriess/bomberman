@@ -24,7 +24,7 @@ def reward_from_events(events):
         USEFUL_BOMB: 20,
         WALKED_TOWARDS_TARGET: 10,
         WALKED_AWAY_FROM_TARGET: -40,
-        DECREASED_RISK: 40, # Not taking the correct direction but decreasing risk is ok
+        DECREASED_RISK: 80, # Not taking the correct direction but decreasing risk is ok
         INCREASED_RISK: -100,
         TOOK_ZERO_RISK_DIRECTION: 40,
         DID_NOT_TAKE_ZERO_RISK_DIRECTION: -40,

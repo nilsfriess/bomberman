@@ -121,7 +121,10 @@ def compute_risk_map(game_state):
         explosions = explosion_radius(game_state['field'], bomb)
 
         for (square, risk) in explosions:
-            risk_map[square] = risk
+            if abs(bomb[0] - self_pos[0]) + abs(bomb[1] - self_pos[1]) < 4:        
+                risk_map[square] = risk
+            else:
+                risk_map[square] = 100
 
         risk_map[bomb] = 100 # The risk of the bomb field itself is high
 
@@ -132,11 +135,10 @@ def compute_risk_map(game_state):
     for (_,_,_,pos) in game_state['others']:
         risk_map[pos] = 10
 
-    deadly_in_map  = deadly_in(game_state)
-    deadly_now_map = deadly_now(game_state)
+    # Explosions have high risk
+    explosion_map = game_state['explosion_map']
 
-    #risk_map[deadly_in_map == 1] = 1000
-    #risk_map[deadly_now_map == 1] = 1000
+    risk_map[explosion_map > 0] = 1000
         
     ''' 
     If we are on a bomb, then walking in a direction with no escape routes

@@ -28,7 +28,6 @@ class QTableEstimator:
         while features[0][0] != 1:
             features[0] = np.roll(features[0], 1)
             features[1] = np.roll(features[1], 1)
-            features[2] = np.roll(features[2], 1)
 
             rotations += 1
             
@@ -55,7 +54,6 @@ class QTableEstimator:
             while old_state[0][0] != 1:
                 old_state[0] = np.roll(old_state[0], 1)
                 old_state[1] = np.roll(old_state[1], 1)
-                old_state[2] = np.roll(old_state[2], 1)
 
                 rotations += 1
             
@@ -63,7 +61,6 @@ class QTableEstimator:
             while new_state[0][0] != 1:
                 new_state[0] = np.roll(new_state[0], 1)
                 new_state[1] = np.roll(new_state[1], 1)
-                new_state[2] = np.roll(new_state[2], 1)
 
             # Rotate action
             action = rotate_action(action, rotations)
