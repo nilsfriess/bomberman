@@ -8,7 +8,10 @@ from .state_action_helpers import random_action, one_hot_action, rotate_action
 from .state_transform import state_to_features
 
 def default_action():
-    return [0] * 6
+    return [0, [0] * 6] # (times trained, values)
+
+left_id = 1
+right_id = 3
 
 class QTableEstimator:
     def __init__(self, learning_rate, discount_factor):
@@ -18,7 +21,7 @@ class QTableEstimator:
         self.table = defaultdict(default_action)
 
     def estimate(self, game_state):
-        features = state_to_features(game_state)
+        features = state_to_features(game_state).copy()
         
         rotations = 0
         
@@ -31,10 +34,10 @@ class QTableEstimator:
             
         state = np.concatenate(features).tobytes()
 
-        best_action = ACTIONS[np.argmax(self.table[state])]
-        rot_action = rotate_action(best_action, -rotations)
+        action = ACTIONS[np.argmax(self.table[state][1])]        
+        action = rotate_action(action, -rotations)
         
-        return rot_action
+        return action
     
     def update(self, transitions):
         for i in range(len(transitions)):
@@ -64,11 +67,14 @@ class QTableEstimator:
 
             # Rotate action
             action = rotate_action(action, rotations)
-            
-            q_max = max(self.table[np.concatenate(new_state).tobytes()])
+
+            q_max = max(self.table[np.concatenate(new_state).tobytes()][1])
 
             old_state = np.concatenate(old_state).tobytes()
-            q_old = self.table[old_state][ACTIONS.index(action)]
+            q_old = self.table[old_state][1][ACTIONS.index(action)]
             q_new = q_old + self.learning_rate*(reward + self.discount_factor*q_max - q_old)
+            self.table[old_state][1][ACTIONS.index(action)] = q_new
 
-            self.table[old_state][ACTIONS.index(action)] = q_new
+            times_trained = self.table[old_state][0]
+            
+            self.table[old_state][0] = times_trained + 1
