@@ -99,19 +99,20 @@ def state_to_features(game_state: dict) -> np.array:
                 # No targets left, choose arbitrary direction
                 target_direction = np.array([1,0,0,0])
                 
-    ''' 4-vector of sign of difference of risk around and own risk '''
+    ''' 4-vector of directions that have lower risk '''
     risk_map = compute_risk_map(game_state)
     x,y = self_pos
     own_risk = risk_map[(x,y)]
     
-    risk_differences = np.zeros((4,))
+    lower_risk_directions = np.zeros((4,))
 
     sign = lambda x : 0 if x < 0 else 1
 
-    risk_differences[0] = sign(own_risk - risk_map[(x,y-1)])
-    risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
-    risk_differences[2] = sign(own_risk - risk_map[(x,y+1)])
-    risk_differences[3] = sign(own_risk - risk_map[(x+1,y)])
+    # Zero means risk in that direction is higher, one means lower
+    lower_risk_directions[0] = sign(own_risk - risk_map[(x,y-1)])
+    lower_risk_directions[1] = sign(own_risk - risk_map[(x-1,y)])
+    lower_risk_directions[2] = sign(own_risk - risk_map[(x,y+1)])
+    lower_risk_directions[3] = sign(own_risk - risk_map[(x+1,y)])
 
     ''' Zero risk directions '''
     zero_risk = np.zeros((4,))
@@ -120,22 +121,19 @@ def state_to_features(game_state: dict) -> np.array:
         if risk_map[neighbor] == 0:
             zero_risk[k] = 1
 
-    ''' Is dropping a bomb a valid move '''
-    bomb_allowed = int(game_state['self'][2])
-
     ''' USEFUL BOMB '''
     n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)
+    bomb_allowed = int(game_state['self'][2])
     
-    if n_destroyable_crates + n_destroyable_enemies == 0:
+    if (n_destroyable_crates + n_destroyable_enemies == 0) or (not bomb_allowed):
         bomb_useful = 0
     else:
         bomb_useful = 1
     
     features = [
         target_direction.ravel(),
-        risk_differences.ravel(),
+        lower_risk_directions.ravel(),
         zero_risk.ravel(),
-        [bomb_allowed],
         [bomb_useful]
     ]
 
