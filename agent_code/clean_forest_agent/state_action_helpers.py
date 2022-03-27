@@ -47,6 +47,15 @@ def generate_suicidal_actions(game_state):
     if total_escape_squares == 0:
          actions.add('BOMB')
 
+    # If we have just dropped a bomb, walking into a direction with no escapes is forbidden
+    _, escape_directions = should_drop_bomb(game_state)
+    bombs = [pos for (pos,_) in game_state['bombs']]
+    if (x,y) in bombs:
+        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+        for d in directions:
+            if escape_directions[d] == 0:
+                actions.add(d)
+
     return actions    
 
 def generate_stupid_actions(game_state):
@@ -130,80 +139,6 @@ def generate_stupid_actions(game_state):
                 stupid_actions.add(d)
 
     return stupid_actions
-
-'''
-Returns a rotated game_state where the agent is in the upper left quadrant.
-'''
-def rotate_game_to_upper_left(game_state):
-    # return game_state, 0
-    
-    game_state = game_state.copy()
-    
-    (_,_,_,(x,y)) = game_state['self']
-    rotations = 0
-    while (x > 8) or (y > 8):
-        game_state = rotate_game_state(game_state)
-
-        rotations += 1
-        (_,_,_,(x,y)) = game_state['self']
-
-        if rotations > 4:
-            raise "Error, too many rotations"
-
-    return game_state, rotations
-
-def mirror_game_state_lr(game_state):
-    return transform_game_state(game_state, np.fliplr)
-
-'''
-Returns a new game_state that represents the state
-after a 90 degree rotation in anticlockwise direction.
-'''
-def rotate_game_state(game_state: dict):
-    game_state = game_state.copy()
-
-    # Rotates a coordinate 90deg anti-clockwise
-    rotate_coordinate = lambda coord : (16 - coord[1], coord[0])
-
-    # Rotate field
-    field = game_state['field']
-    game_state['field'] = np.rot90(field, -1)
-
-    # Rotate explosion map
-    explosion_map = game_state['explosion_map']
-    game_state['explosion_map'] = np.rot90(explosion_map, -1)
-
-    def rotate_agent(agent):
-        (name, score, bomb, pos) = agent
-        rot_pos = rotate_coordinate(pos)
-        return (name, score, bomb, rot_pos)
-
-    # Rotate our agent
-    game_state['self'] = rotate_agent(game_state['self'])
-
-    # Rotate the other agents
-    enemies = game_state['others']
-    if len(enemies) > 0:
-        new_enemies = []
-        for enemy in enemies:
-            new_enemies.append(rotate_agent(enemy))
-        new_game_state['others'] = new_enemies
-
-    # Rotate coins
-    coins = game_state['coins']
-    rot_coins = []
-    for coin in coins:
-        rot_coins.append(rotate_coordinate(coin))
-    game_state['coins'] = rot_coins
-
-    # Rotate bombs
-    bombs = game_state['bombs']
-    rot_bombs = []
-    for position, timer in bombs:
-        rot_bombs.append((rotate_coordinate(position), timer))
-    game_state['bombs'] = rot_bombs
-        
-    return game_state
     
 
 def rotate_action(action, n):
