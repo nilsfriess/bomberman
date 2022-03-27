@@ -71,19 +71,18 @@ def end_of_round(self, last_game_state, last_action, events):
 
     print_progress(self, last_game_state, last_action, events, total_reward)
     
-    # Update the gb tree and throw away the transitions
+    # Update the qtable and throw away the transitions
     if len(self.transitions) >= 3:
         # Only train with sufficiently many transitions
         self.estimator.update(self.transitions)
+        self.epsilon = max(0.01, self.initial_epsilon / (1 + 0.03*last_game_state['round']))
 
-        # self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
-        self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
+        if len(self.transitions) >= 150:
+            self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.01*last_game_state['round'])
 
-        
-        #self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0008*last_game_state['round'])
         self.transitions = []
-
-    if last_game_state['round'] % 50 == 0:
+            
+    if last_game_state['round'] % 50 == 0: # Save every 50th model
         dt = datetime.datetime.now()
         st = dt.strftime('%Y-%m-%d %H:%M:%S')
         with open(f"models/model_{st}.pt", "wb") as file:
@@ -96,14 +95,13 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
     if (e.INVALID_ACTION not in events) and (self_action != 'WAIT'):
         events.append(VALID_ACTION)
 
-
     # Check if we walked towards target        
     target_direction = old_features[0][:4]
     target_action = action_from_direction(target_direction)
 
     if (VALID_ACTION in events) and (target_action == self_action):
         events.append(WALKED_TOWARDS_TARGET)
-    else:
+    if target_action != self_action:
         events.append(WALKED_AWAY_FROM_TARGET)
                 
     # Bomb-related events
@@ -113,57 +111,38 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
     bombs = old_game_state['bombs']
                 
     if (self_action == 'BOMB') and (e.INVALID_ACTION not in events):
-        # Check if bomb was dropped in corner which is probably a stupid idea
-        corners = [(1,1), (1,15), (15,1), (15,15)]
-        if new_game_state['self'][3] in corners:
-            events.append(BOMB_IN_CORNER)
-
         n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(old_game_state)
         
         if n_destroyable_crates + n_destroyable_enemies == 0:
             events.append(USELESS_BOMB)
         else:
             events.append(USEFUL_BOMB)
-
-        # n_escape_squares, _ = should_drop_bomb(old_game_state)
-
-        # if n_escape_squares == 0:
-        #     bomb_safety = -1
-        # elif n_escape_squares < 8:
-        #     bomb_safety = 0
-        # else:
-        #     bomb_safety = 1
-
-        # if bomb_safety == -1:
-        #     events.append(DROPPED_SUICIDE_BOMB)
-        # elif bomb_safety == 0:
-        #     events.append(DROPPED_UNSAFE_BOMB)
-        # else:
-        #     events.append(DROPPED_SAFE_BOMB)
             
     # Check if we went in a direction with lower risk
     risk_map = compute_risk_map(old_game_state)
     x,y = old_self_pos
     own_risk = risk_map[(x,y)]
     
-    risk_differences = np.zeros((4,))
+    lower_risk_directions = np.zeros((4,))
 
     sign = lambda x : 0 if x < 0 else 1
 
-    risk_differences[0] = sign(own_risk - risk_map[(x,y-1)])
-    risk_differences[1] = sign(own_risk - risk_map[(x-1,y)])
-    risk_differences[2] = sign(own_risk - risk_map[(x,y+1)])
-    risk_differences[3] = sign(own_risk - risk_map[(x+1,y)])
+    lower_risk_directions[0] = sign(own_risk - risk_map[(x,y-1)])
+    lower_risk_directions[1] = sign(own_risk - risk_map[(x-1,y)])
+    lower_risk_directions[2] = sign(own_risk - risk_map[(x,y+1)])
+    lower_risk_directions[3] = sign(own_risk - risk_map[(x+1,y)])
 
     directions = ['UP', 'LEFT', 'DOWN', 'RIGHT']
 
     if own_risk > 0:
-        if np.any(risk_differences != -1): # If there is a direction with lower risk
+        if np.any(lower_risk_directions == 1): # If there is a direction with lower risk
             for k, d in enumerate(directions):
-                if (risk_differences[k] != -1) and (self_action == d):
+                # Check if we walked into a direction with lower risk
+                if (lower_risk_directions[k] == 1) and (self_action == d) and (e.INVALID_ACTION not in events):
                     events.append(DECREASED_RISK)
                     break
             if DECREASED_RISK not in events:
+                print("Increased risk")
                 events.append(INCREASED_RISK)
 
         neighbors =  [(x+1,y), (x-1,y), (x,y-1), (x,y+1)]
@@ -173,13 +152,21 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
             if (risk_map[neighbor] == 0) and (self_action == directions[k]):
                 events.append(TOOK_ZERO_RISK_DIRECTION)
 
-    else:
+        # Check if we did not take zero risk direction, even if one was available
+        if TOOK_ZERO_RISK_DIRECTION not in events:
+            for neighbor in neighbors:
+                if risk_map[neighbor] == 0:
+                    print("Did not take zero risk direction")
+                    events.append(DID_NOT_TAKE_ZERO_RISK_DIRECTION)
+
+    else: # Our risk is zero
         # Check if we actively walked into a risk region
         if self_action != 'BOMB':
             if (risk_map[old_self_pos] == 0) and (risk_map[new_self_pos] > 0):
                 events.append(INCREASED_RISK)
-        
-    if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):
+
+    ''' Update counters ''' 
+    if (e.INVALID_ACTION in events):
         self.invalid += 1
         
     if self_action == 'BOMB' and (e.INVALID_ACTION not in events):
@@ -203,7 +190,11 @@ def print_progress(self, last_game_state, last_action, events, total_reward):
     else:
         summary += "Planted 0 bombs\n"
     summary += f"Parameters: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}, filter = {self.action_filter_prob*100 :.2f}%\n"
+
+    min_trained = min(self.estimator.table.values(), key=lambda x: x[0])[0]
     summary += f"Entries in QTable: {len(self.estimator.table)}\n"
+    summary += f"Every entry trained at least {min_trained} times\n"
+        
     
     self.invalid = 0
     self.bombs = 0
