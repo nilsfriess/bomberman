@@ -14,6 +14,8 @@ WALKED_TOWARDS_TARGET = 'WALKED_TOWARDS_TARGET'
 TOOK_ZERO_RISK_DIRECTION = 'TOOK_ZERO_RISK_DIRECTION'
 DID_NOT_TAKE_ZERO_RISK_DIRECTION = 'DID_NOT_TAKE_ZERO_RISK_DIRECTION'
 
+WAITED_IN_RISK = 'WAITED_IN_RISK'
+
 def reward_from_events(events):
     game_rewards = {
         e.KILLED_OPPONENT: 50,
@@ -28,7 +30,8 @@ def reward_from_events(events):
         INCREASED_RISK: -100,
         TOOK_ZERO_RISK_DIRECTION: 40,
         DID_NOT_TAKE_ZERO_RISK_DIRECTION: -40,
-        e.KILLED_SELF: -100
+        e.KILLED_SELF: -100,
+        WAITED_IN_RISK: -100
     }
     reward_sum = 0
     for event in events:
