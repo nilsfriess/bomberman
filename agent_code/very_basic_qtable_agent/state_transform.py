@@ -8,11 +8,8 @@ from .state_action_helpers import one_hot_action
 def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
         return np.array([])
-    
-    # Assemble features
 
     ''' DIRECTION TO TARGET '''
-    TOTAL_COINS = 50
     # If there are collectable coins, the target is the nearest coin.
     # If there are no collectable coins but still hidden coins, the target is the nearest crate.
     # If none of the above is true, the target is the nearest enemy.
@@ -137,6 +134,8 @@ def state_to_features(game_state: dict) -> np.array:
         lower_risk_directions[2] = lower_than_own_risk(risk_map[down])
         lower_risk_directions[3] = lower_than_own_risk(risk_map[up])
 
+    ''' '''
+        
     ''' USEFUL BOMB '''
     n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)
     bomb_allowed = int(game_state['self'][2])
