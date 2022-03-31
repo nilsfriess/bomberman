@@ -29,7 +29,7 @@ def setup(self):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
-            self.initial_epsilon = 0.02
+            self.initial_epsilon = 0.1
             self.epsilon = self.initial_epsilon
 
             self.initial_learning_rate = 0.1
@@ -37,6 +37,8 @@ def setup(self):
 
             self.action_filter_prob = 0.0
             self.initial_action_filter_prop = self.action_filter_prob
+
+            print("Loaded model...")
 
 def act(self, game_state):
     if np.random.uniform() < 1 - self.action_filter_prob: # Only filter sometimes

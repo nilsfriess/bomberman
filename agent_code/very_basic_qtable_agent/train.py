@@ -75,7 +75,7 @@ def end_of_round(self, last_game_state, last_action, events):
     if len(self.transitions) >= 3:
         # Only train with sufficiently many transitions
         self.estimator.update(self.transitions)
-        self.epsilon = max(0.01, self.initial_epsilon / (1 + 0.03*last_game_state['round']))
+        self.epsilon = max(0.09, self.initial_epsilon / (1 + 0.03*last_game_state['round']))
 
         if len(self.transitions) >= 150:
             self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.001*last_game_state['round'])
@@ -95,21 +95,27 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
     if (e.INVALID_ACTION not in events) and (self_action != 'WAIT'):
         events.append(VALID_ACTION)
 
-    # Check if we walked towards target        
-    target_direction = old_features[0][:4]
-    target_action = action_from_direction(target_direction)
-
-    if (VALID_ACTION in events) and (target_action == self_action):
-        events.append(WALKED_TOWARDS_TARGET)
-    if target_action != self_action:
-        events.append(WALKED_AWAY_FROM_TARGET)
-                
-    # Bomb-related events
     old_self_pos = old_game_state['self'][3]
     new_self_pos = new_game_state['self'][3]
     explosion_map = new_game_state['explosion_map']
     bombs = old_game_state['bombs']
+
+        
+    # Check if we walked towards target (only if we are not currently trying to escape bomb)
+    risk_map = compute_risk_map(old_game_state)
+    x,y = old_self_pos
+    own_risk = risk_map[(x,y)]
+    
+    if own_risk == 0:
+        target_direction = old_features[0][:4]
+        target_action = action_from_direction(target_direction)
+
+        if (VALID_ACTION in events) and (target_action == self_action):
+            events.append(WALKED_TOWARDS_TARGET)
+        if target_action != self_action:
+            events.append(WALKED_AWAY_FROM_TARGET)
                 
+    # Bomb-related events                
     if (self_action == 'BOMB') and (e.INVALID_ACTION not in events):
         n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(old_game_state)
         
@@ -119,10 +125,6 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
             events.append(USEFUL_BOMB)
             
     # Check if we went in a direction with lower risk
-    risk_map = compute_risk_map(old_game_state)
-    x,y = old_self_pos
-    own_risk = risk_map[(x,y)]
-    
     lower_risk_directions = np.zeros((4,))
 
     sign = lambda x : 0 if x < 0 else 1

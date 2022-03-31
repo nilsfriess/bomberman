@@ -113,6 +113,8 @@ def state_to_features(game_state: dict) -> np.array:
     up_risk = risk_map[up]
     down_risk = risk_map[down]
 
+    # print(f"Risk at {(x,y)}: {[left_risk, right_risk, up_risk, down_risk, own_risk]}")
+
     # If there exist zero risk directions, consider only those
     if up_risk == 0:
         lower_risk_directions[0] = 1
@@ -125,16 +127,22 @@ def state_to_features(game_state: dict) -> np.array:
 
     if not np.any(lower_risk_directions == 1):
         # Did not find zero risk direction, set 1 where risk is strictly lower
-        
-        lower_than_own_risk = lambda x : 1 if x < own_risk else 0
+
+        # If own risk is zero, check which directions are also zero.
+        # Else, check which directions have strictly smaller risk
+        if own_risk == 0:
+            lower_than_own_risk = lambda x : 1 if x == 0 else 0
+        else:
+            lower_than_own_risk = lambda x : 1 if x < own_risk else 0
     
         # Zero means risk in that direction is higher, one means lower
         lower_risk_directions[0] = lower_than_own_risk(risk_map[up])
         lower_risk_directions[1] = lower_than_own_risk(risk_map[left])
         lower_risk_directions[2] = lower_than_own_risk(risk_map[down])
-        lower_risk_directions[3] = lower_than_own_risk(risk_map[up])
+        lower_risk_directions[3] = lower_than_own_risk(risk_map[right])
 
-    ''' '''
+    # print(lower_risk_directions)
+
         
     ''' USEFUL BOMB '''
     n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)

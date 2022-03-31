@@ -40,20 +40,29 @@ def generate_suicidal_actions(game_state):
     if explosion_map[down] > 0:
         actions.add('DOWN')
 
-    total_escape_squares, _ = should_drop_bomb(game_state)
-    
-    # Check if dropping a bomb will probably kill us
-    if total_escape_squares == 0:
-         actions.add('BOMB')
+    # if deadly_in_map[right] == 1:
+    #     actions.add('RIGHT')
+    # if deadly_in_map[left] == 1:
+    #     actions.add('LEFT')
+    # if deadly_in_map[up] == 1:
+    #     actions.add('UP')
+    # if deadly_in_map[down] == 1:
+    #     actions.add('DOWN')
 
-    # If we have just dropped a bomb, walking into a direction with no escapes is forbidden
-    _, escape_directions = should_drop_bomb(game_state)
-    bombs = [pos for (pos,_) in game_state['bombs']]
-    if (x,y) in bombs:
-        directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
-        for d in directions:
-            if escape_directions[d] == 0:
-                actions.add(d)
+    # total_escape_squares, _ = should_drop_bomb(game_state)
+    
+    # # Check if dropping a bomb will probably kill us
+    # if total_escape_squares == 0:
+    #      actions.add('BOMB')
+
+    # # If we have just dropped a bomb, walking into a direction with no escapes is forbidden
+    # _, escape_directions = should_drop_bomb(game_state)
+    # bombs = [pos for (pos,_) in game_state['bombs']]
+    # if (x,y) in bombs:
+    #     directions = ['RIGHT', 'LEFT', 'DOWN', 'UP']
+    #     for d in directions:
+    #         if escape_directions[d] == 0:
+    #             actions.add(d)
 
     return actions    
 

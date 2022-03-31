@@ -19,7 +19,7 @@ SCENARIOS = {
     # Feel free to add more game modes and properties
     # game is created in environment.py -> BombeRLeWorld -> build_arena()
     "coins-and-crates": {
-        "CRATE_DENSITY": 0.75,
+        "CRATE_DENSITY": 0.3,
         "COIN_COUNT": 50
     },
 }
