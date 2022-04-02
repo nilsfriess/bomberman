@@ -15,12 +15,12 @@ def setup(self):
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
 
-    self.action_filter_prob = 1
+    self.action_filter_prob = 0
     self.initial_action_filter_prop = self.action_filter_prob
     
     self.estimator = GBTEstimator(0.1, self.discount_factor)
 
-    if os.path.isfile("models/model.pt"):
+    if False and os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 

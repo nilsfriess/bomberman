@@ -22,36 +22,54 @@ def setup_training(self):
     self.killed_self = 0
     self.turned = 0
 
+    self.old_game_state = None
+    self.new_game_features = None
+
 def game_events_occurred(self, old_game_state, self_action, new_game_state, events):
     if old_game_state is None:
         return
 
-    self.old_game_state = old_game_state
+    if self.new_game_features is None:
+        # In the first step, there is no previous game.
+        # Afterwards, the current old_game_state is the new_game_state from the previous round
+        self.old_game_features = state_to_features(old_game_state)
+        self.new_game_features = state_to_features(new_game_state)
+    else:
+        self.old_game_features = self.new_game_features
+        self.new_game_features = state_to_features(new_game_state)
 
+    self.old_game_state = old_game_state
+        
     # Compute custom events and append them to `events`
     compute_custom_events(self,
                           old_game_state,
+                          self.old_game_features,
                           self_action,
                           new_game_state,
                           events)
 
     reward = reward_from_events(events)
-    self.transitions.append((old_game_state,
+    self.transitions.append((self.old_game_features,
                              self_action,
-                             new_game_state,
+                             self.new_game_features,
                              reward))
 
 def end_of_round(self, last_game_state, last_action, events):
     compute_custom_events(self,
                           self.old_game_state,
+                          self.old_game_features,
                           last_action,
                           last_game_state,
                           events)
     
-    self.transitions.append((self.old_game_state,
+    self.transitions.append((self.old_game_features,
                             last_action,
-                            last_game_state,
+                            state_to_features(last_game_state),
                             reward_from_events(events)))
+    
+    total_reward = 0
+    for _,_,_,reward in self.transitions:
+        total_reward += reward
 
     self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
     self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
@@ -79,28 +97,31 @@ def end_of_round(self, last_game_state, last_action, events):
         with open(f"models/model_{st}.pt", "wb") as file:
             dump(self.estimator, file)
 
-def compute_custom_events(self, old_game_state, self_action, new_game_state, events):
+def compute_custom_events(self, old_game_state, old_features, self_action, new_game_state, events):
     if self_action == 'WAIT':
         events.append(e.INVALID_ACTION)
 
     if (e.INVALID_ACTION not in events) and (self_action != 'WAIT'):
         events.append(VALID_ACTION)
 
-
-    # Check if we walked towards target
-    
-    old_features = state_to_features(old_game_state)
-    target_direction = old_features[:4]
-    target_action = action_from_direction(target_direction)
-
-    if (VALID_ACTION in events) and (target_action == self_action):
-        events.append(WALKED_TOWARDS_TARGET)
-    else:
-        events.append(WALKED_AWAY_FROM_TARGET)
-                
-    # Bomb-related events
     old_self_pos = old_game_state['self'][3]
     new_self_pos = new_game_state['self'][3]
+
+    # Check if we walked towards target (only if we are not currently trying to escape bomb)
+    risk_map = compute_risk_map(old_game_state)
+    x,y = old_self_pos
+    own_risk = risk_map[(x,y)]
+    
+    if own_risk == 0:
+        target_direction = old_features[:4]
+        target_action = action_from_direction(target_direction)
+
+        if (VALID_ACTION in events) and (target_action == self_action):
+            events.append(WALKED_TOWARDS_TARGET)
+        if target_action != self_action:
+            events.append(WALKED_AWAY_FROM_TARGET)
+    
+    # Bomb-related events
     explosion_map = new_game_state['explosion_map']
     bombs = old_game_state['bombs']
 

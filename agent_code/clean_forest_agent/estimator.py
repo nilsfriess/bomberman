@@ -37,39 +37,20 @@ class GBTEstimator:
         best_action = ACTIONS[np.argmax(qvalues)]
 
         return best_action
-
-    def report_feature_importance(self):
-        importances = self.regressor.feature_importances_
-        
-        idx = 0
-        for feature in self.feature_names:
-            f_importances = importances[idx:idx+self.feature_names[feature]]
-
-            with np.printoptions(precision=3, suppress=True):
-                print(f"Importances of '{feature}': {f_importances}")
-            
-            idx += self.feature_names[feature]
     
     def update(self, transitions):
         if self.not_fitted:
             first_game_state = transitions[0][0]
-            first_transformed_transition, names = state_to_features(first_game_state, with_feature_list=True)
+            first_transformed_transition = first_game_state
         
             self.feature_size = first_transformed_transition.size
-
-            self.feature_names = names
             
         X,y = self.qlearning(transitions)
         
         self.regressor.fit(X, y)
-        self.regressor.n_estimators += 1
+        self.regressor.set_params(n_estimators=self.regressor.n_estimators + 1)
                 
         self.not_fitted = False
-
-        self.print_cnt += 1
-        if self.print_cnt == self.print_importance_every:
-            self.report_feature_importance()
-            self.print_cnt = 0
 
     # 3 step TD
     def qlearning(self, transitions):
@@ -90,10 +71,10 @@ class GBTEstimator:
             if self.not_fitted:
                 qvalues = [0]
             else:
-                state = state_to_features(next_next_new_state)
+                state = next_next_new_state
                 qvalues = [self.regressor.predict(np.append(state, one_hot_action(a)).reshape(1,-1)) for a in ACTIONS]
 
-            state = state_to_features(now_old_state)
+            state = now_old_state
             
             X[i,:] = np.append(state, one_hot_action(now_action))
             y[i] = rewards + self.discount_factor**3 * max(qvalues)

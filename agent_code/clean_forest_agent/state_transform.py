@@ -9,17 +9,15 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
     if game_state is None:
         return np.array([])
     
-    # Assemble features
-
     ''' DIRECTION TO TARGET '''
-    TOTAL_COINS = 50
     # If there are collectable coins, the target is the nearest coin.
     # If there are no collectable coins but still hidden coins, the target is the nearest crate.
     # If none of the above is true, the target is the nearest enemy.
     field = np.array(game_state['field'])
     coins = np.array(game_state['coins'])
     (_,_,_,self_pos) = game_state['self']
-    
+
+    found_coin = False
     if len(coins) > 0:
         dist_to_coins = cdist(coins, [self_pos], 'cityblock')
         n_closest_coins = min(len(coins), 5)
@@ -41,38 +39,33 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
                                                          self_pos,
                                                          target_coins)
 
-        target_direction = direction_from_coordinates(self_pos,
-                                                      coord_to_closest_coin)
+        if np.any(coord_to_closest_coin != self_pos):
+            # If we found a path, the coin is the target. If we found no path,
+            # we are stuck behind a wall of crates -> nearest crate is target
+            found_coin = True
 
-    else:
-        # No visible coins, compute total left coins
+            target_direction = direction_from_coordinates(self_pos,
+                                                          coord_to_closest_coin)
+
+    if not found_coin:
+        # No visible coins or not reachable, destroy nearby crates
         enemies = game_state['others']
-        killed_enemies = 4 - len(enemies)
+        crates_coords = np.argwhere(field == 1)
+        enemy_positions = [pos for (_,_,_,pos) in enemies]
+        if len(crates_coords) > 0:
+            dist_to_crates = cdist(crates_coords, [self_pos], 'cityblock')
 
-        total_score = -5*killed_enemies
-        for (_,score,_,_) in enemies:
-            total_score += score
-
-        left_coins = total_score - TOTAL_COINS
-
-        if left_coins > 0:
-            # There are still coins left, target is nearest crate
-            
-            crates_coords = np.argwhere(field == 1)
-            if len(crates_coords) > 0:
-                dist_to_crates = cdist(crates_coords, [self_pos], 'cityblock')
-
-                n_closest_crates = min(len(crates_coords), 5)
-                crates_by_distance = crates_coords[np.argpartition(dist_to_crates.ravel(),
-                                                           n_closest_crates-1)]
-                closest_crates = crates_by_distance[:n_closest_crates]
+            n_closest_crates = min(len(crates_coords), 5)
+            crates_by_distance = crates_coords[np.argpartition(dist_to_crates.ravel(),
+                                                               n_closest_crates-1)]
+            closest_crates = crates_by_distance[:n_closest_crates]
                 
-                coord_to_closest_crate = find_next_step_to_assets(field,
-                                                                  enemies,
-                                                                  self_pos,
-                                                                  closest_crates)        
+            coord_to_closest_crate = find_next_step_to_assets(field,
+                                                              enemy_positions,
+                                                              self_pos,
+                                                              closest_crates)        
 
-                target_direction = direction_from_coordinates(self_pos,
+            target_direction = direction_from_coordinates(self_pos,
                                                               coord_to_closest_crate)
                                                     
         else:
@@ -98,106 +91,76 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
                                                                   [closest_enemy])
                 target_direction = direction_from_coordinates(self_pos,
                                                               coord_to_closest_enemy)
-
-            else:
-                # No targets left
-                target_direction = direction_from_coordinates(self_pos,
-                                                              self_pos)
                 
-    ''' 5-vector of risks around us and at our position '''
-    risk_map = compute_risk_map(game_state)
-    risk_factors = np.zeros((5,))
-
-    x,y = self_pos
-    risk_factors[0] = risk_map[(x+1,y)]
-    risk_factors[1] = risk_map[(x-1,y)]
-    risk_factors[2] = risk_map[(x,y+1)]
-    risk_factors[3] = risk_map[(x,y-1)]
-    risk_factors[4] = risk_map[(x,y)]
-
-    '''
-    For every direction (and our position) we now have a risk factor.
-    We will now transform this into an array such that the directions
-    with the lowest risk have the number 0, the directions with the second
-    lowest risk have the number 1, and the rest has the number 2.
-    '''
-    risk_ordering = 2*np.ones_like(risk_factors)
-
-    unique_risks = np.unique(risk_factors) # np.unique also sorts
-
-    # Set value of smallest risks to zero
-    smallest_risk = unique_risks[0]
-    indices = (risk_factors == smallest_risk).nonzero()[0]
-    risk_ordering[indices] = 0
-
-    # If there exist second smallest risks (i.e., not all directions have equal risk), set those to 1
-    if len(unique_risks) > 1:
-        second_smallest_risk = unique_risks[1] # np.unique also sorts
-        indices = (risk_factors == second_smallest_risk).nonzero()[0]
-
-        risk_ordering[indices] = 1
-    
-
-
-    # lowest_risk_direction = np.zeros((5,))
-    # lowest_risk_direction[risk_factors == risk_factors.min()] = 1  
-    
-
-    # ''' 5-vector that is one if a direction is a zero-risk direction '''
-    # zero_risk_direction = np.zeros_like(risk_factors)
-    # zero_risk_direction[risk_factors == 0] = 1
-
-    ''' Is dropping a bomb a valid move '''
-    bomb_allowed = int(game_state['self'][2])
-
-    ''' Safety of dropping bomb here '''
-    n_escape_squares, _ = should_drop_bomb(game_state)
-
-    if n_escape_squares == 0:
-        bomb_safety = -1
-    elif n_escape_squares < 8:
-        bomb_safety = 0
-    else:
-        bomb_safety = 1
-
-    ''' USEFUL BOMB '''
-    n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(game_state)
-    
-    if n_destroyable_crates + n_destroyable_enemies == 0:
-        bomb_useful = 0
-    else:
-        # Either destroys crates or enemies
-        if n_destroyable_enemies == 0:
-            # Bomb destroys some crates, the more, the better
-            if n_destroyable_crates < 3:
-                bomb_useful = 1
             else:
-                bomb_useful = 2
-        else:
-            # Bomb tries to kill enemy
-            bomb_useful = 3
-    
-    features = [
+                # No targets left, choose arbitrary direction
+                target_direction = np.array([1,0,0,0])
+
+    ''' 7x7 WINDOW OF BLOCKED TILES AROUND AGENT '''
+    blocked_window = np.zeros((7,7))
+    x,y = self_pos
+    for i in [-3,-2,-1,0,1,2,3]:
+        for j in [-3,-2,-1,0,1,2,3]:
+            coord_on_field = (x+i, y+j)
+
+            if (x+i < 0)\
+               or (x+i >= field.shape[0])\
+               or (y+j < 0)\
+               or (y+j >= field.shape[1]):
+                continue
+            else:
+                if field[coord_on_field] != 0:
+                    blocked_window[i+2,j+2] = 1
+
+
+    ''' 7x7 WINDOW OF EXPLOSIONS AROUND AGENT '''
+    explosion_window = np.zeros((7,7))
+    explosion_map = game_state['explosion_map']
+    x,y = self_pos
+    for i in [-3,-2,-1,0,1,2,3]:
+        for j in [-3,-2,-1,0,1,2,3]:
+            coord_on_field = (x+i, y+j)
+
+            if (x+i < 0)\
+               or (x+i >= field.shape[0])\
+               or (y+j < 0)\
+               or (y+j >= field.shape[1]):
+                continue
+            else:
+                if explosion_map[coord_on_field] != 0:
+                    explosion_window[i+2,j+2] = 1
+
+    ''' 7x7 WINDOW OF ENEMIES AROUND AGENT '''
+    enemies_window = np.zeros((7,7))
+    enemies = game_state['others']
+    x,y = self_pos
+    for i in [-3,-2,-1,0,1,2,3]:
+        for j in [-3,-2,-1,0,1,2,3]:
+            coord_on_field = (x+i, y+j)
+
+            for _,_,_,pos in enemies:
+                if np.array_equal(coord_on_field, pos):
+                    enemies_window[i+2,j+2] = 1
+
+    ''' 7x7 WINDOW OF BOMBS AROUND AGENT '''
+    bombs_window = np.zeros((7,7))
+    bombs = game_state['bombs']
+    x,y = self_pos
+    for i in [-3,-2,-1,0,1,2,3]:
+        for j in [-3,-2,-1,0,1,2,3]:
+            coord_on_field = (x+i, y+j)
+
+            for pos,_ in bombs:
+                if np.array_equal(coord_on_field, pos):
+                    bombs_window[i+2,j+2] = 1
+
+    features = np.concatenate([
         target_direction.ravel(),
-        risk_ordering.ravel(),
-        [bomb_allowed],
-        [bomb_safety],
-        [bomb_useful]
-    ]
+        blocked_window.ravel(),
+        explosion_window.ravel(),
+        enemies_window.ravel(),
+        bombs_window.ravel()
+    ])
     
-    if with_feature_list:
-        feature_names = {
-            'target direction' : 0,
-            'risk ordering' : 0,
-            'bomb allowed' : 0,
-            'bomb safety' : 0,
-            'bomb useful' : 0
-        }
-
-        for i, feature in enumerate(feature_names):
-            feature_names[feature] = len(features[i])
-
-        return np.concatenate(features), feature_names
-
-    return np.concatenate(features)
+    return features
 

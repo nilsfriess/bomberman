@@ -9,7 +9,7 @@ def one_hot_action(action: str) -> np.array:
 
     return oh_action
 
-def random_action(allow_bombs = True):
+def random_action(allow_bombs = False):
     if allow_bombs:
         return np.random.choice(ACTIONS)
     else:
