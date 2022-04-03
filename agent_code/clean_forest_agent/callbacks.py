@@ -8,27 +8,31 @@ from .state_action_helpers import generate_stupid_actions, random_action, genera
 from .base_helpers import ACTIONS
 
 def setup(self):
-    self.epsilon = 0.4
-    self.learning_rate = 0.2
-    self.discount_factor = 0.8
+    self.epsilon = 0.3
+    self.learning_rate = 0.3
+    self.discount_factor = 0.99
 
     self.initial_epsilon = self.epsilon
     self.initial_learning_rate = self.learning_rate
 
-    self.action_filter_prob = 0
+    self.action_filter_prob = 1
     self.initial_action_filter_prop = self.action_filter_prob
     
-    self.estimator = GBTEstimator(0.1, self.discount_factor)
+    self.estimator = GBTEstimator(self.learning_rate, self.discount_factor)
 
-    if False and os.path.isfile("models/model.pt"):
+    if os.path.isfile("models/model.pt"):
         with open("models/model.pt", "rb") as file:
             self.estimator = load(file)
 
-            self.initial_epsilon = 0.01
-            self.epsilon = 0.01
+            self.initial_epsilon = 0.2
+            self.epsilon = 0.2
 
             self.initial_learning_rate = 0.1
             self.learning_rate = 0.1
+
+            self.action_filter_prob = 1
+            self.initial_action_filter_prop = self.action_filter_prob
+            
             print("LOADED MODEL")
 
 def act(self, game_state):
@@ -48,7 +52,5 @@ def act(self, game_state):
             action = random_action()
     else:
         action = random_action()
-        while action in stupid_actions:
-            action = random_action()
 
     return action

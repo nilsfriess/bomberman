@@ -96,9 +96,11 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
                 # No targets left, choose arbitrary direction
                 target_direction = np.array([1,0,0,0])
 
-    ''' 7x7 WINDOW OF BLOCKED TILES AROUND AGENT '''
+    ''' 7x7 WINDOW OF BLOCKED TILES AND ENEMIES AROUND AGENT '''
     blocked_window = np.zeros((7,7))
     x,y = self_pos
+    enemy_positions = [pos for (_,_,_,pos) in game_state['others']]
+    
     for i in [-3,-2,-1,0,1,2,3]:
         for j in [-3,-2,-1,0,1,2,3]:
             coord_on_field = (x+i, y+j)
@@ -110,12 +112,15 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
                 continue
             else:
                 if field[coord_on_field] != 0:
-                    blocked_window[i+2,j+2] = 1
+                    blocked_window[i+3,j+3] = field[coord_on_field]
+                elif coord_on_field in enemy_positions:
+                    blocked_window[i+3,j+3] = 2
 
 
-    ''' 7x7 WINDOW OF EXPLOSIONS AROUND AGENT '''
+    ''' 7x7 WINDOW OF EXPLOSIONS AND BOMBS AROUND AGENT '''
     explosion_window = np.zeros((7,7))
     explosion_map = game_state['explosion_map']
+    bombs = game_state['bombs']
     x,y = self_pos
     for i in [-3,-2,-1,0,1,2,3]:
         for j in [-3,-2,-1,0,1,2,3]:
@@ -125,41 +130,26 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
                or (x+i >= field.shape[0])\
                or (y+j < 0)\
                or (y+j >= field.shape[1]):
-                continue
-            else:
+                pass
+            else:                    
+                for pos,val in bombs:
+                    if np.array_equal(coord_on_field, pos):
+                        explosion_window[i+3,j+3] = val + 1
+
                 if explosion_map[coord_on_field] != 0:
-                    explosion_window[i+2,j+2] = 1
+                    explosion_window[i+3,j+3] = -1
 
-    ''' 7x7 WINDOW OF ENEMIES AROUND AGENT '''
-    enemies_window = np.zeros((7,7))
-    enemies = game_state['others']
-    x,y = self_pos
-    for i in [-3,-2,-1,0,1,2,3]:
-        for j in [-3,-2,-1,0,1,2,3]:
-            coord_on_field = (x+i, y+j)
+    if True:
+        print(self_pos)
+        print(blocked_window.T)
+        print(explosion_window.T)
 
-            for _,_,_,pos in enemies:
-                if np.array_equal(coord_on_field, pos):
-                    enemies_window[i+2,j+2] = 1
-
-    ''' 7x7 WINDOW OF BOMBS AROUND AGENT '''
-    bombs_window = np.zeros((7,7))
-    bombs = game_state['bombs']
-    x,y = self_pos
-    for i in [-3,-2,-1,0,1,2,3]:
-        for j in [-3,-2,-1,0,1,2,3]:
-            coord_on_field = (x+i, y+j)
-
-            for pos,_ in bombs:
-                if np.array_equal(coord_on_field, pos):
-                    bombs_window[i+2,j+2] = 1
-
+        print()
+                        
     features = np.concatenate([
         target_direction.ravel(),
         blocked_window.ravel(),
-        explosion_window.ravel(),
-        enemies_window.ravel(),
-        bombs_window.ravel()
+        explosion_window.ravel()
     ])
     
     return features

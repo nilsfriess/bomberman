@@ -11,7 +11,7 @@ to the bomb square of this coordinate.
 '''
 def explosion_radius(field, bomb_pos, with_risk = True):
     explosion_list = [bomb_pos]
-    distance_list = [0]
+    risk_list = [4]
     
     for k in [-1,-2,-3]:
         coord_on_field = (bomb_pos[0] + k, bomb_pos[1])        
@@ -19,7 +19,7 @@ def explosion_radius(field, bomb_pos, with_risk = True):
             # Reached a wall, no need to look further
             break
         explosion_list.append(coord_on_field)
-        distance_list.append(abs(k))
+        risk_list.append(4 - abs(k))
         
     for k in [1,2,3]:
         coord_on_field = (bomb_pos[0] + k, bomb_pos[1])
@@ -28,7 +28,7 @@ def explosion_radius(field, bomb_pos, with_risk = True):
             # Reached a wall, no need to look further
             break
         explosion_list.append(coord_on_field)
-        distance_list.append(abs(k))
+        risk_list.append(4 - abs(k))
 
     for k in [-1,-2,-3]:
         coord_on_field = (bomb_pos[0], bomb_pos[1]+k)
@@ -37,7 +37,7 @@ def explosion_radius(field, bomb_pos, with_risk = True):
             # Reached a wall, no need to look further
             break
         explosion_list.append(coord_on_field)
-        distance_list.append(abs(k))
+        risk_list.append(4 - abs(k))
         
     for k in [1,2,3]:
         coord_on_field = (bomb_pos[0], bomb_pos[1]+k)
@@ -46,45 +46,42 @@ def explosion_radius(field, bomb_pos, with_risk = True):
             # Reached a wall, no need to look further
             break
         explosion_list.append(coord_on_field)
-        distance_list.append(abs(k))
+        risk_list.append(4 - abs(k))
         
     if with_risk:
-        return zip(explosion_list, distance_list)
+        return zip(explosion_list, risk_list)
     else:
         return explosion_list
 
-def reachable_from(start, field):
+def neighbors_of(start, field):
     x,y = start
 
+    all_neighbors = [(x+1,y), (x-1,y), (x,y+1), (x,y-1)]
+    
     reachable = []
-    for delta in [-1,1]:
-        coord = (x+delta,y)
-        if field[coord] == 0:
-            reachable.append(coord)
-        coord = (x,y+delta)
-        if field[coord] == 0:
-            reachable.append(coord)
+    for neighbor in all_neighbors:
+        if field[neighbor] == 0:
+            reachable.append(neighbor)
 
     return reachable
 
 def reachable_in_n(start, field, n):
-    reachable_squares = set(reachable_from(start, field)) # use set to avoid storing duplicates
-    visited = []
-    for k in range(n): # n-1 iterations = reachable in n steps
-        reachable_from_here = set()
-        for square in reachable_squares:
-            if square in visited: # we have already checked the reachable squares
-                continue
-            
-            reachable = reachable_from(square, field)
-            for r in reachable:
-                reachable_from_here.add(r)
-            visited.append(square)
+    reachable = set()
+    stack = [start]
 
-        reachable_squares = reachable_squares.union(reachable_from_here)
+    dist = lambda x,y : abs(x[0] - y[0]) + abs(x[1] - y[1])
 
-    return reachable_squares
+    while len(stack) > 0:
+        next = stack.pop()
 
+        if next not in reachable:
+            reachable.add(next)
+
+            if dist(start, next) < n:
+                for neighbor in neighbors_of(next, field):
+                    stack.append(neighbor)
+
+    return reachable
     
 def should_drop_bomb(game_state):
     '''
@@ -105,6 +102,9 @@ def should_drop_bomb(game_state):
     for (_,_,_,pos) in game_state['others']:
         field[pos] = -1
 
+    # The agent itself is also blocking
+    field[self_pos] = -1
+
     '''
     Compute the coordinates to all squares reachable within four steps.
     We also compute how many escape squares are reachable from which neighbor
@@ -119,12 +119,8 @@ def should_drop_bomb(game_state):
     all_neighbors = [(x+1,y), (x-1,y), (x,y+1), (x,y-1)]
     #               ['RIGHT', 'LEFT', 'DOWN', 'UP']
     
-    reachable_neighbors = reachable_from(self_pos, field)
     for i, neighbor in enumerate(all_neighbors):
-        if field[neighbor] == -1:
-            continue
-        
-        if neighbor not in reachable_neighbors:
+        if field[neighbor] != 0:
             continue
             
         squares = reachable_in_n(neighbor, field, 3)
@@ -138,7 +134,7 @@ def should_drop_bomb(game_state):
     escape_squares_directions = dict()
     for i,direction in enumerate(directions):
         escape_squares_directions[direction] = number_of_squares[i]
-    
+        
     return len(escape_squares), escape_squares_directions
 
 '''

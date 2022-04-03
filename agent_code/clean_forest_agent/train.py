@@ -16,11 +16,9 @@ def setup_training(self):
 
     # Setup counters
     self.invalid = 0
-    self.moved_away = 0
-    self.avoided_bomb = 0
     self.bombs = 0
     self.killed_self = 0
-    self.turned = 0
+    self.useless_bombs = 0
 
     self.old_game_state = None
     self.new_game_features = None
@@ -71,19 +69,17 @@ def end_of_round(self, last_game_state, last_action, events):
     for _,_,_,reward in self.transitions:
         total_reward += reward
 
-    self.learning_rate = self.initial_learning_rate / (1 + 0.01*last_game_state['round'])
-    self.epsilon = self.initial_epsilon / (1 + 0.03*last_game_state['round'])
+    self.learning_rate = self.initial_learning_rate / (1 + 0.001*last_game_state['round'])
+    self.epsilon = max(0.05, self.initial_epsilon / (1 + 0.01*last_game_state['round']))
+    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0001*last_game_state['round'])
 
     self.estimator.regressor.learning_rate = self.learning_rate
-
-    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.01*last_game_state['round'])
     
     total_reward = 0
     for _,_,_,reward in self.transitions:
         total_reward += reward
 
-    print_progress(self, last_game_state, last_action, events)
-    print(f"Total reward {total_reward}")
+    print_progress(self, last_game_state, last_action, events, total_reward)
     
     # Update the gb tree and throw away the transitions
     if len(self.transitions) > 1:
@@ -122,114 +118,88 @@ def compute_custom_events(self, old_game_state, old_features, self_action, new_g
             events.append(WALKED_AWAY_FROM_TARGET)
     
     # Bomb-related events
-    explosion_map = new_game_state['explosion_map']
-    bombs = old_game_state['bombs']
-
-    # Check if we increased the distance to a bomb if it is near us
-    for (bomb_pos,_) in bombs:
-        # Are we in the same row or column as the bomb?
-        if (bomb_pos[0] == old_self_pos[0]) or (bomb_pos[1] == old_self_pos[1]):
-            # Are we near the bomb?
-            if cdist([bomb_pos], [old_self_pos], 'cityblock') < 5:
-                # Did we move towards the bomb?
-                if cdist([bomb_pos], [new_self_pos], 'cityblock') <= cdist([bomb_pos], [old_self_pos], 'cityblock'):
-                    events.append(MOVED_TOWARDS_BOMB)
-                else:
-                    events.append(MOVED_AWAY_FROM_BOMB)
-                
     if (self_action == 'BOMB') and (e.INVALID_ACTION not in events):
-        # Check if bomb was dropped in corner which is probably a stupid idea
-        corners = [(1,1), (1,15), (15,1), (15,15)]
-        if new_game_state['self'][3] in corners:
-            events.append(BOMB_IN_CORNER)
-
         n_destroyable_crates, n_destroyable_enemies = bomb_usefulness(old_game_state)
         
         if n_destroyable_crates + n_destroyable_enemies == 0:
             events.append(USELESS_BOMB)
         else:
-            # Either destroys crates or enemies
-            if n_destroyable_enemies == 0:
-                # Bomb destroys some crates, the more, the better
-                if n_destroyable_crates < 3:
-                    events.append(USEFUL_BOMB)
-                else:
-                    events.append(VERY_USEFUL_BOMB)
-            else:
-                # Bomb tries to kill enemy
-                events.append(EXTREMELY_USEFUL_BOMB)
-
-        n_escape_squares, _ = should_drop_bomb(old_game_state)
-
-        if n_escape_squares == 0:
-            bomb_safety = -1
-        elif n_escape_squares < 8:
-            bomb_safety = 0
-        else:
-            bomb_safety = 1
-
-        if bomb_safety == -1:
-            events.append(DROPPED_SUICIDE_BOMB)
-        elif bomb_safety == 0:
-            events.append(DROPPED_UNSAFE_BOMB)
-        else:
-            events.append(DROPPED_SAFE_BOMB)
+            events.append(USEFUL_BOMB)
             
     # Check if we went in a direction with lower risk
-    risk_map = compute_risk_map(old_game_state)
+    lower_risk_directions = np.zeros((4,))
 
-    if (risk_map[old_self_pos] > 0) and (risk_map[new_self_pos] < risk_map[old_self_pos]):
-        events.append(DECREASED_RISK)
-    if (risk_map[new_self_pos] >= risk_map[old_self_pos]) and (risk_map[old_self_pos] > 0):
-        events.append(INCREASED_RISK)
+    sign = lambda x : 0 if x < 0 else 1
 
-    # Check if we went in the direction with the lowest risk
-    risk_factors = np.zeros((5,))
+    lower_risk_directions[0] = sign(own_risk - risk_map[(x,y-1)])
+    lower_risk_directions[1] = sign(own_risk - risk_map[(x-1,y)])
+    lower_risk_directions[2] = sign(own_risk - risk_map[(x,y+1)])
+    lower_risk_directions[3] = sign(own_risk - risk_map[(x+1,y)])
 
-    x,y = old_self_pos    
-    risk_factors[0] = risk_map[(x+1,y)]
-    risk_factors[1] = risk_map[(x-1,y)]
-    risk_factors[2] = risk_map[(x,y+1)]
-    risk_factors[3] = risk_map[(x,y-1)]
-    risk_factors[4] = risk_map[(x,y)]
+    directions = ['UP', 'LEFT', 'DOWN', 'RIGHT']
 
-    if (risk_map[old_self_pos] > 0) and (risk_map[new_self_pos] == np.amin(risk_factors)):
-        # Took direction with lowest risk
-        events.append(TOOK_LOWEST_RISK_DIRECTION)
+    if own_risk > 0:
+        if self_action == 'WAIT':
+            events.append(WAITED_IN_RISK)
+        
+        if np.any(lower_risk_directions == 1): # If there is a direction with lower risk
+            for k, d in enumerate(directions):
+                # Check if we walked into a direction with lower risk
+                if (lower_risk_directions[k] == 1) and (self_action == d) and (e.INVALID_ACTION not in events):
+                    events.append(DECREASED_RISK)
+                    break
+            if DECREASED_RISK not in events:
+                events.append(INCREASED_RISK)
 
-    if (e.INVALID_ACTION in events) or (e.INVALID_ACTION in events):
+        neighbors =  [(x+1,y), (x-1,y), (x,y-1), (x,y+1)]
+        directions = ['RIGHT', 'LEFT', 'UP', 'DOWN']
+
+        for k, neighbor in enumerate(neighbors):
+            if (risk_map[neighbor] == 0) and (self_action == directions[k]):
+                events.append(TOOK_ZERO_RISK_DIRECTION)
+
+        # Check if we did not take zero risk direction, even if one was available
+        if TOOK_ZERO_RISK_DIRECTION not in events:
+            for neighbor in neighbors:
+                if risk_map[neighbor] == 0:
+                    events.append(DID_NOT_TAKE_ZERO_RISK_DIRECTION)
+
+    else: # Our risk is zero
+        # Check if we actively walked into a risk region
+        if self_action != 'BOMB':
+            if (risk_map[old_self_pos] == 0) and (risk_map[new_self_pos] > 0):
+                events.append(INCREASED_RISK)
+
+    ''' Update counters ''' 
+    if (e.INVALID_ACTION in events):
         self.invalid += 1
-
-    if MOVED_AWAY_FROM_BOMB in events:
-        self.moved_away += 1
         
     if self_action == 'BOMB' and (e.INVALID_ACTION not in events):
         self.bombs += 1
 
-    if ESCAPED_BOMB_BY_TURNING in events:
-        self.turned += 1
+    if USELESS_BOMB in events:
+        self.useless_bombs += 1
 
-def print_progress(self, last_game_state, last_action, events):
+def print_progress(self, last_game_state, last_action, events, total_reward):
     if e.KILLED_SELF in events:
         self.killed_self += 1
 
-    print(f"Survived {last_game_state['step']} steps")
-    print(f"Coins collected: {last_game_state['self'][1]}")
-    print(f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%")
+    summary = ""
+        
+    summary += f"Survived {last_game_state['step']} steps (killed itself: {self.killed_self > 0})\n"
+    summary += f"Total reward: {total_reward}\n"
+    summary += f"Total points: {last_game_state['self'][1]}\n"
+    summary += f"Invalid or waited: {self.invalid / last_game_state['step'] * 100:.0f}%\n"
+    if self.bombs > 0:
+        summary += f"Planted {self.bombs} bombs, {self.useless_bombs / self.bombs * 100:.0f}% useless\n"
+    else:
+        summary += "Planted 0 bombs\n"
+    summary += f"Parameters: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}, filter = {self.action_filter_prob*100 :.2f}%\n"
+        
+    
     self.invalid = 0
-    print(f"Planted {self.bombs} bombs, killed itself {self.killed_self} times")
     self.bombs = 0
     self.killed_self = 0
-    print(f"Moved away from bomb {self.moved_away} times, avoided {self.avoided_bomb} times")
-    self.avoided_bomb = 0
-    self.moved_away = 0
-    print(f"Turned after bomb {self.turned} times")
-    print(f"Action filter probability: {self.action_filter_prob*100 : .2f}%")
-    #self.action_filter_prob *= 0.99
-    self.turned = 0
-    print(f"Used: epsilon = {self.epsilon:.2f}, alpha = {self.learning_rate:.2f}")
-    #self.epsilon = self.initial_epsilon/(1 + 0.002*last_game_state['round'])
-    #self.learning_rate = self.initial_learning_rate/(1 + 0.02*last_game_state['round'])
-    #self.learning_rate = 0.999*self.learning_rate
-    #self.QEstimator.update_learning_rate(self.learning_rate)
-    print()
+    self.useless_bombs = 0
+    
+    print(summary)
