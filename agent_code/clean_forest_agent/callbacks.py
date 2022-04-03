@@ -52,5 +52,7 @@ def act(self, game_state):
             action = random_action()
     else:
         action = random_action()
+        while action in stupid_actions:
+            action = random_action()
 
     return action

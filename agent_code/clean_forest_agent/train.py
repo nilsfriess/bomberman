@@ -71,7 +71,7 @@ def end_of_round(self, last_game_state, last_action, events):
 
     self.learning_rate = self.initial_learning_rate / (1 + 0.001*last_game_state['round'])
     self.epsilon = max(0.05, self.initial_epsilon / (1 + 0.01*last_game_state['round']))
-    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.0001*last_game_state['round'])
+    self.action_filter_prob = self.initial_action_filter_prop / (1 + 0.001*last_game_state['round'])
 
     self.estimator.regressor.learning_rate = self.learning_rate
     

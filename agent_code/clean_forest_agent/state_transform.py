@@ -138,13 +138,6 @@ def state_to_features(game_state: dict, with_feature_list = False) -> np.array:
 
                 if explosion_map[coord_on_field] != 0:
                     explosion_window[i+3,j+3] = -1
-
-    if True:
-        print(self_pos)
-        print(blocked_window.T)
-        print(explosion_window.T)
-
-        print()
                         
     features = np.concatenate([
         target_direction.ravel(),
